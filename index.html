@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Rugby Kick</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="ui">
+    <div id="round-info">
+      <div id="round-counter">Round 1 / 10</div>
+      <div id="score-display">Goals: 0 / 10</div>
+    </div>
+
+    <div id="wind-indicator">
+      <div id="wind-compass">
+        <div class="compass-label compass-n">N</div>
+        <div class="compass-label compass-s">S</div>
+        <div class="compass-label compass-e">E</div>
+        <div class="compass-label compass-w">W</div>
+        <div id="wind-arrow-ptr"></div>
+      </div>
+      <div id="wind-text">Wind: 0.0 m/s N</div>
+    </div>
+    <div id="power-bar-container">
+      <div id="power-bar-label">POWER</div>
+      <div id="power-bar-track">
+        <div id="power-bar-fill"></div>
+      </div>
+      <div id="power-value">0%</div>
+    </div>
+    <div id="instructions">Use LEFT/RIGHT to aim &mdash; Hold SPACE to charge &mdash; Release to kick</div>
+    <div id="message"></div>
+  </div>
+  <div id="game-over">
+    <div id="game-over-content">
+      <div id="game-over-title">GAME OVER</div>
+      <div id="final-score">You scored 0 / 10</div>
+
+      <button id="play-again-btn">Play Again</button>
+    </div>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>
