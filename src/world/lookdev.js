@@ -31,7 +31,7 @@ export const PRESETS = {
       inGoal: '#4f8f2e', lines: '#fdfaf0', posts: '#f7f3ea', padding: RED,
       standConcrete: '#d9c6ab', seatA: '#d8502a', seatB: '#b8401f',
       flagPole: CREAM, flag: { color: RED, side: THREE.DoubleSide },
-      tee: '#f2b705', ball: '#f7f3ea', seam: RED,
+      tee: '#f2b705', seam: RED,
       hills: '#5f8f4a', palmTrunk: '#8a6a4a', palmLeaf: '#3f7d34',
       floodPole: '#666', floodHead: '#ccc', roof: '#b8a58c', roofPost: '#9a8a74',
     },
@@ -47,29 +47,32 @@ export const PRESETS = {
     toneMapping: 'aces',
     exposure: 1.1,
     shading: 'standard',
-    sky: { top: '#03050a', horizon: '#1a2233', bottom: '#0a0d14', stars: true, sunColor: '#000000' },
-    fog: { color: '#161d2b', near: 80, far: 260 },
+    // Deep blue-black sky warmed near the horizon by the stadium's own glow
+    sky: { top: '#02040a', horizon: '#263049', bottom: '#0b0e16', stars: true, sunColor: '#000000' },
+    fog: { color: '#1c2436', near: 70, far: 250 },
     lights: {
-      hemi: { sky: '#6070a0', ground: '#18221a', intensity: 0.7 },
-      key: { color: '#f3f6ff', intensity: 2.4, dir: [0.6, 1.4, -0.4] },
-      fill: { color: '#dfe6ff', intensity: 0.9, dir: [-0.6, 1.2, 0.5] },
+      hemi: { sky: '#6a7bb0', ground: '#1a2618', intensity: 0.65 },
+      // Key: the far-right bank of floodlights; fill: the banks behind the kicker
+      key: { color: '#f3f6ff', intensity: 2.3, dir: [0.7, 1.3, -0.45] },
+      fill: { color: '#e4e9ff', intensity: 1.35, dir: [-0.45, 1.1, 1] },
     },
     grass: ['#2f8a36', '#287a2f'],
     palette: {
-      inGoal: '#236b28', lines: '#f4f6ff', posts: '#f4f6ff', padding: RED,
+      inGoal: '#256f2a', lines: '#f4f6ff', posts: '#f6f7ff', padding: RED,
       standConcrete: '#555b68', seatA: '#3a404c', seatB: '#323844',
       flagPole: CREAM, flag: { color: RED, side: THREE.DoubleSide },
-      tee: GOLD, ball: '#f4f2ea', seam: RED,
-      hills: '#10151d', palmTrunk: '#221a14', palmLeaf: '#0f1d12',
+      tee: GOLD, seam: RED,
+      hills: '#0d121b', palmTrunk: '#090c10', palmLeaf: '#0a0f12',
       floodPole: '#3a3f4a', floodHead: { color: '#ffffff', emissive: '#fff6e0', emissiveIntensity: 3 },
       roof: '#20242c', roofPost: '#2a2e36',
     },
     crowd: [RED, RED, BLACK, GOLD, CREAM, '#2f7d5b', '#8a8f9a'],
     banner: [BLACK, GOLD, RED, CREAM],
     bannerGlow: 0.9,
-    scenery: { hills: false, palms: false, floodlights: true, roofs: true, banners: true },
+    // Hills and palms stay as silhouettes against the horizon glow: still a tropical ground at night
+    scenery: { hills: true, palms: true, floodlights: true, roofs: true, banners: true },
     outline: false,
-    bloom: false, // real bloom is a toggle (lazy-loaded); glow sprites fake it by default
+    bloom: 'auto', // restrained bloom on desktop, off on phones (a setting overrides)
   },
 
   C: {
@@ -88,7 +91,7 @@ export const PRESETS = {
       inGoal: '#2aa53a', lines: '#ffffff', posts: '#ffffff', padding: RED,
       standConcrete: '#4a3530', seatA: '#e5482c', seatB: '#c9391f',
       flagPole: '#ffffff', flag: { color: RED, side: THREE.DoubleSide },
-      tee: GOLD, ball: '#ffffff', seam: RED,
+      tee: GOLD, seam: RED,
       hills: '#e0643a', palmTrunk: '#3a2416', palmLeaf: '#1f6b2b',
       floodPole: '#333', floodHead: '#eee', roof: '#222', roofPost: '#222',
     },
@@ -105,7 +108,7 @@ const TONE = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, non
 /**
  * @param {object} deps  { renderer, scene, sky, lighting, crowd, scenery, post }
  */
-export function createLookdev({ renderer, scene, sky, lighting, crowd, scenery, post, mobile }) {
+export function createLookdev({ renderer, scene, sky, lighting, crowd, scenery, post, mobile, ballMap, getBloomSetting = () => 'auto' }) {
   let mats = null;
   let grassTex = null;
   let patternTex = null;
@@ -146,6 +149,7 @@ export function createLookdev({ renderer, scene, sky, lighting, crowd, scenery, 
     patternTex = createPatternTexture({ colors: p.banner });
 
     const palette = {
+      ball: { color: '#ffffff', map: ballMap, roughness: 0.6 },
       ...p.palette,
       grass: { color: '#ffffff', map: grassTex },
       banner: p.bannerGlow
@@ -160,7 +164,11 @@ export function createLookdev({ renderer, scene, sky, lighting, crowd, scenery, 
     crowd.applyPalette(p.crowd, SKINS);
     scenery.setVisible(p.scenery);
     setOutlines(p.outline);
-    post.setBloom(p.bloom);
+    const pref = getBloomSetting();
+    const auto = p.bloom === 'auto' ? !mobile : !!p.bloom;
+    const bloom = pref === 'auto' ? auto : pref === 'on' && p.bloom !== false;
+    post.setBloom(bloom);
+    scenery.setBloom(bloom);
     renderer.shadowMap.needsUpdate = true;
   }
 

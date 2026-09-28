@@ -20,6 +20,11 @@ const st = (page) => page.evaluate(() => {
   const s = window.__game.state;
   return { state: s.state, teeDist: s.teeDist, yaw: s.yaw, elev: s.elevationDeg, kicked: !!s.flight, revealed: !!s.flight?.revealed, round: s.round };
 });
+// Wait for game time (not wall time) to pass in the current state: slow
+// software-GL frames can stall the loop, and the game rightly ignores input
+// for its first 0.12 s of game time in a state.
+const settle = (page, seconds = 0.25) =>
+  page.waitForFunction((s) => window.__game.state.stateTime >= s, seconds, { timeout: 15000 });
 const waitState = (page, name, timeout = 8000) =>
   page.waitForFunction((n) => window.__game.state.state === n, name, { timeout }).then(() => true, () => false);
 
@@ -115,29 +120,33 @@ try {
     check('keys: Play match has focus on the title', await page.evaluate(() => document.activeElement?.id === 'btn-play'));
     await page.keyboard.press('Enter');
     check('keys: Enter starts the match', await waitState(page, 'establish', 1500));
-    await page.waitForTimeout(300);
+    await settle(page);
     await page.keyboard.press('KeyX');
     check('keys: any key skips the establishing shot', await waitState(page, 'tee', 1500));
-    await page.waitForTimeout(200);
+    await settle(page);
 
     const t0 = (await st(page)).teeDist;
     await page.keyboard.down('ArrowDown');
-    await page.waitForTimeout(400);
+    const tt = await page.evaluate(() => window.__game.state.time);
+    await page.waitForFunction((t) => window.__game.state.time >= t + 0.4, tt, { timeout: 15000 });
     await page.keyboard.up('ArrowDown');
     const t1 = (await st(page)).teeDist;
     check('keys: ↓ moves the tee back', t1 > t0 + 1, `${t0} → ${t1.toFixed(1)} m`);
 
     await page.keyboard.press('Space');
     check('keys: Space confirms the tee', await waitState(page, 'aim', 1500));
-    await page.waitForTimeout(300);
+    await settle(page);
 
+    // Hold each key for 0.3 s of game time
+    const hold = async (key) => {
+      await page.keyboard.down(key);
+      const t = await page.evaluate(() => window.__game.state.time);
+      await page.waitForFunction((t0) => window.__game.state.time >= t0 + 0.3, t, { timeout: 15000 });
+      await page.keyboard.up(key);
+    };
     const a0 = await st(page);
-    await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(300);
-    await page.keyboard.up('ArrowRight');
-    await page.keyboard.down('ArrowUp');
-    await page.waitForTimeout(300);
-    await page.keyboard.up('ArrowUp');
+    await hold('ArrowRight');
+    await hold('ArrowUp');
     const a1 = await st(page);
     check('keys: → aims right', a1.yaw > a0.yaw, `${a0.yaw.toFixed(3)} → ${a1.yaw.toFixed(3)}`);
     check('keys: ↑ raises the kick', a1.elev > a0.elev, `${a0.elev.toFixed(1)}° → ${a1.elev.toFixed(1)}°`);

@@ -19,7 +19,8 @@ export function createPost(renderer, scene, camera) {
     const size = renderer.getSize(new THREE.Vector2());
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.5, 0.82));
+    // Restrained: only lamps, lit boards and white lines cross the threshold
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.35, 0.9));
     composer.addPass(new OutputPass());
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(size.x, size.y);

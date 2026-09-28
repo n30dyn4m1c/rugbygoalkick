@@ -54,13 +54,31 @@ const stadium = createStadium(scene);
 const crowd = createCrowd(scene, stadium.rows, sceneryRng);
 const scenery = createScenery(scene, sceneryRng);
 const mobile = matchMedia('(pointer: coarse)').matches;
-const lookdev = createLookdev({ renderer, scene, sky, lighting, crowd, scenery, post, mobile });
 const tee = createTee(scene);
 const ball = createBall(scene);
 const tryMarker = createTryMarker(scene);
 const preview = createAimPreview(scene);
 const teeGuide = createTeeGuide(scene);
-lookdev.apply(new URLSearchParams(location.search).get('look')?.toUpperCase() || 'A');
+const lookdev = createLookdev({
+  renderer, scene, sky, lighting, crowd, scenery, post, mobile,
+  ballMap: ball.userData.map,
+  getBloomSetting: () => settings.get().glow,
+});
+// Floodlit night (direction B) is the game's look; ?look=A|C keeps the prototypes reachable
+lookdev.apply(new URLSearchParams(location.search).get('look')?.toUpperCase() || 'B');
+
+// Shadows only re-render when a shadow caster (the ball) has moved
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
+const lastBall = { p: ball.position.clone(), q: ball.quaternion.clone(), v: ball.visible };
+function updateShadowsIfMoved() {
+  if (!ball.position.equals(lastBall.p) || !ball.quaternion.equals(lastBall.q) || ball.visible !== lastBall.v) {
+    renderer.shadowMap.needsUpdate = true;
+    lastBall.p.copy(ball.position);
+    lastBall.q.copy(ball.quaternion);
+    lastBall.v = ball.visible;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Input, settings, tutorial
@@ -68,9 +86,14 @@ lookdev.apply(new URLSearchParams(location.search).get('look')?.toUpperCase() ||
 const input = createInput({ surface: renderer.domElement, getBindings: () => settings.get().bindings });
 hud.setDevice(input.lastDevice);
 hud.setHandedness(settings.get().handedness);
+let lastGlow = settings.get().glow;
 settings.subscribe((s) => {
   hud.setHandedness(s.handedness);
   input.refreshBindings();
+  if (s.glow !== lastGlow) {
+    lastGlow = s.glow;
+    lookdev.apply(lookdev.current);
+  }
 });
 
 const tutorial = createTutorial({ keyLabelFor: (action) => keyLabel(settings.get().bindings[action]?.[0]) });
@@ -117,6 +140,7 @@ const loop = createLoop({
     crowd.update(game.state.time, 0);
   },
   render() {
+    updateShadowsIfMoved();
     post.render();
   },
 });
@@ -196,7 +220,7 @@ on('btn-again', startMatch);
 on('btn-summary-title', showTitle);
 hud.onPause(pause);
 
-screens.bindSettings(settings, {});
+screens.bindSettings(settings, { glowDefault: () => post.bloom });
 
 input.on('press', ({ action }) => {
   if (action === 'pause' || action === 'back') {

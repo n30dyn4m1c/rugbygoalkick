@@ -34,6 +34,9 @@ const ESTABLISH = 1.4;
 const RESULT_HOLD = 2.8;
 const INPUT_GRACE = 0.12; // ignore the press that caused a state change
 const BALL_SPIN = -2.2 * Math.PI * 2; // end over end, rad/s
+const SPIRAL_SPIN = 3.5 * Math.PI * 2; // torpedo roll, rad/s
+const SPIRAL_BELOW_DEG = 30; // low, flat kicks spiral; conversions tumble end over end
+const BALL_AXIS = new THREE.Vector3(0, 1, 0); // ball's long axis in model space
 
 /**
  * @param {object} deps
@@ -87,7 +90,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
 
   function placeBallOnTee() {
     const p = teePos();
-    tee.position.set(p.x, 0.04, p.z);
+    tee.position.set(p.x, 0, p.z);
     ball.position.set(p.x, p.y, p.z);
     // Upright on the tee, leaning slightly back toward the kicker
     ball.quaternion.setFromAxisAngle(new THREE.Vector3(Math.cos(g.yaw), 0, Math.sin(g.yaw)), 0.3);
@@ -226,7 +229,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     const focus = result.crossing
       ? { x: result.crossing.x, y: result.crossing.y, z: GOALPOST_Z }
       : result.events[0]?.point ?? result.landing ?? result.samples.at(-1);
-    g.flight = { kick: k, result, focus, t: 0, revealT: Math.min(revealT, result.duration), revealed: false, doneAt: null };
+    g.flight = { kick: k, result, focus, spiral: g.elevationDeg < SPIRAL_BELOW_DEG, roll: 0, t: 0, revealT: Math.min(revealT, result.duration), revealed: false, doneAt: null };
     go('flight');
   }
 
@@ -373,6 +376,8 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
 
   const spinAxis = new THREE.Vector3();
   const spinQ = new THREE.Quaternion();
+  const velDir = new THREE.Vector3();
+  const alignQ = new THREE.Quaternion();
 
   function updateFlight(dt) {
     const f = g.flight;
@@ -385,11 +390,25 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     const u = Math.min(Math.max(idx - i, 0), 1);
     ball.position.set(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u);
 
-    // End-over-end spin about the kick's right axis, dying away once it lands
-    const spin = landing && f.t > landing.t ? BALL_SPIN * Math.max(0, 1 - (f.t - landing.t) * 1.5) : BALL_SPIN;
-    spinAxis.set(Math.cos(f.kick.yaw), 0, Math.sin(f.kick.yaw));
-    spinQ.setFromAxisAngle(spinAxis, spin * dt);
-    ball.quaternion.premultiply(spinQ);
+    // Spin dies away once the ball lands
+    const airborne = !(landing && f.t > landing.t);
+    const fade = airborne ? 1 : Math.max(0, 1 - (f.t - landing.t) * 1.5);
+    if (f.spiral && airborne) {
+      // Torpedo: long axis follows the flight path, rolling around it
+      velDir.set(b.x - a.x, b.y - a.y, b.z - a.z);
+      if (velDir.lengthSq() > 1e-10) {
+        velDir.normalize();
+        f.roll += SPIRAL_SPIN * dt;
+        alignQ.setFromUnitVectors(BALL_AXIS, velDir);
+        spinQ.setFromAxisAngle(velDir, f.roll);
+        ball.quaternion.copy(alignQ).premultiply(spinQ);
+      }
+    } else {
+      // End over end about the kick's right axis
+      spinAxis.set(Math.cos(f.kick.yaw), 0, Math.sin(f.kick.yaw));
+      spinQ.setFromAxisAngle(spinAxis, (f.spiral ? SPIRAL_SPIN * 0.3 : BALL_SPIN) * fade * dt);
+      ball.quaternion.premultiply(spinQ);
+    }
 
     if (!f.revealed) rig.follow(ball.position, f.kick.yaw);
     else rig.resultShot(f.focus);

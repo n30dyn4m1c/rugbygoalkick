@@ -41,7 +41,7 @@ export function createStadium(scene) {
   stand(40, -5, 130, -1, 0, 4);
   stand(-40, -5, 130, 1, 0, 4);
   stand(0, GOALPOST_Z - 18, FIELD_WIDTH, 0, 1, 3);
-  stand(0, 58, FIELD_WIDTH, 0, -1, 3);
+  stand(0, GOALPOST_Z + 118, FIELD_WIDTH, 0, -1, 3); // behind the far dead-ball line
 
   scene.add(group);
   return { group, rows };

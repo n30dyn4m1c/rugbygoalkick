@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
   alwaysSuggestedTee: false,
   introEveryRound: false,
   tutorialDone: false,
+  glow: 'auto', // bloom: auto (desktop on, phones off) | on | off
   bindings: DEFAULT_BINDINGS,
 };
 

@@ -2,12 +2,16 @@
    Tokens
    ------------------------------------------------------------------------- */
 :root {
-  --ink: #fff;
-  --ink-dim: rgba(255, 255, 255, 0.78);
-  --pill-bg: rgba(12, 12, 14, 0.66);
-  --pill-border: rgba(255, 255, 255, 0.14);
-  --gold: #ffd23f;
-  --red: #d7263d;
+  /* Floodlit night: cool white ink on blue-black glass, gold + red accents
+     taken from the crowd and pattern boards */
+  --ink: #f4f6ff;
+  --ink-dim: rgba(228, 234, 255, 0.78);
+  --pill-bg: rgba(8, 11, 20, 0.72);
+  --pill-border: rgba(170, 190, 255, 0.18);
+  --screen-bg: rgba(5, 7, 13, 0.78);
+  --panel-bg: rgba(12, 16, 28, 0.95);
+  --gold: #f5c518;
+  --red: #c8102e;
   --good: #3ddc84;
   --bad: #ff6b5b;
   --radius: 14px;
@@ -463,6 +467,22 @@ input,
   padding: 8px 22px;
 }
 
+/* Landscape (phones and desktop): keep the ball, bottom centre, clear —
+   aim info moves to the left edge */
+@media (orientation: landscape) {
+  #aim-panel .panel-bottom {
+    left: calc(var(--safe-l) + var(--gutter));
+    transform: none;
+    width: auto;
+    max-width: 34%;
+    align-items: flex-start;
+  }
+
+  #aim-panel .hint {
+    text-align: left;
+  }
+}
+
 /* Landscape phones: short screens — wind joins the top row, compact type */
 @media (orientation: landscape) and (max-height: 500px) {
   .wind {
@@ -492,18 +512,6 @@ input,
     bottom: calc(var(--safe-b) + 24%);
   }
 
-  /* Keep the ball (bottom centre) clear: aim info moves to the left edge */
-  #aim-panel .panel-bottom {
-    left: calc(var(--safe-l) + var(--gutter));
-    transform: none;
-    width: auto;
-    max-width: 34%;
-    align-items: flex-start;
-  }
-
-  #aim-panel .hint {
-    text-align: left;
-  }
 }
 
 /* -------------------------------------------------------------------------
@@ -567,7 +575,7 @@ input,
   align-items: center;
   justify-content: center;
   padding: calc(var(--safe-t) + 16px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 16px) calc(var(--safe-l) + 16px);
-  background: rgba(8, 8, 10, 0.72);
+  background: var(--screen-bg);
   overflow-y: auto;
 }
 
@@ -623,7 +631,7 @@ body.menu-open #hud {
 
 /* Title: the stadium stays visible behind a bottom-weighted card */
 .title-screen {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.1) 35%, rgba(8, 8, 10, 0.85) 100%);
+  background: linear-gradient(to bottom, rgba(5, 7, 13, 0) 0%, rgba(5, 7, 13, 0.1) 35%, rgba(5, 7, 13, 0.88) 100%);
   align-items: flex-end;
 }
 
@@ -666,7 +674,7 @@ body.menu-open #hud {
 .settings-card {
   width: min(100%, 560px);
   text-align: left;
-  background: rgba(18, 18, 22, 0.94);
+  background: var(--panel-bg);
   border: 1px solid var(--pill-border);
   border-radius: 20px;
   padding: 16px;

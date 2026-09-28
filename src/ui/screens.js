@@ -86,8 +86,14 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 const TOGGLES = ['invertDragAim', 'alwaysSuggestedTee', 'meterAssist', 'previewAssist', 'introEveryRound'];
 
-export function bindSettings(settings, { onRebindStart, onRebindEnd }) {
+export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault = () => false }) {
   const s = () => settings.get();
+
+  const glow = $('set-glow');
+  const syncGlow = () => (glow.checked = s().glow === 'auto' ? glowDefault() : s().glow === 'on');
+  syncGlow();
+  glow.addEventListener('change', () => settings.set({ glow: glow.checked ? 'on' : 'off' }));
+  $('screen-settings').addEventListener('focusin', syncGlow);
 
   for (const key of TOGGLES) {
     const el = $(`set-${key}`);

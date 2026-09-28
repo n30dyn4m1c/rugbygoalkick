@@ -56,11 +56,11 @@ export function createCameraRig(camera) {
     aimShot(tee, yaw, r = 4) {
       const f = fwd(yaw);
       const portrait = camera.aspect < 1;
-      const back = portrait ? 3.8 : 5;
-      const height = portrait ? 1.7 : 1.9;
+      const back = portrait ? 3.1 : 3.9;
+      const height = portrait ? 1.45 : 1.6;
       this.moveTo(
         { x: tee.x - f.x * back, y: height, z: tee.z - f.z * back },
-        { x: tee.x + f.x * 30, y: portrait ? 3.4 : 2.4, z: tee.z + f.z * 30 },
+        { x: tee.x + f.x * 30, y: portrait ? 3.6 : 2.6, z: tee.z + f.z * 30 },
         r,
       );
     },

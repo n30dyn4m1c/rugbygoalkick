@@ -71,11 +71,52 @@ function hillsMesh(rng) {
   return role(new THREE.Mesh(mergeSimple(geos)), 'hills');
 }
 
+// Faint light shafts from each floodlight head toward the pitch (one mesh,
+// additive, alpha fading from the lamp down) — the "haze" in the night look.
+function hazeCones(spots) {
+  const geos = [];
+  const target = new THREE.Vector3(0, 0, GOALPOST_Z + 22);
+  for (const [x, z, h] of spots) {
+    const apex = new THREE.Vector3(x, h + 1, z);
+    const len = apex.distanceTo(target) * 0.55; // shafts fade out well above the pitch
+    const cone = new THREE.ConeGeometry(7, len, 16, 1, true).translate(0, -len / 2, 0);
+    const colors = [];
+    const pos = cone.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const t = -pos.getY(i) / len; // 0 at the lamp, 1 at the ground
+      colors.push(1, 0.97, 0.9, 0.1 * (1 - t) ** 2);
+    }
+    cone.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), target.clone().sub(apex).normalize());
+    cone.applyQuaternion(q).translate(apex.x, apex.y, apex.z);
+    geos.push(cone.toNonIndexed());
+  }
+  const pos = [];
+  const col = [];
+  for (const geo of geos) {
+    pos.push(...geo.attributes.position.array);
+    col.push(...geo.attributes.color.array);
+  }
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  merged.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  const mesh = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+  }));
+  mesh.renderOrder = 5;
+  return mesh;
+}
+
 function floodlights() {
   const g = new THREE.Group();
   const glow = createGlowTexture();
-  // Behind the far stand (in view while aiming) and along both sides
-  const spots = [[-36, GOALPOST_Z - 48, 30], [36, GOALPOST_Z - 48, 30], [-58, GOALPOST_Z + 20, 34], [58, GOALPOST_Z + 20, 34]];
+  // Behind the far stand (in view while aiming), along both sides, and behind the kicker
+  const spots = [
+    [-54, GOALPOST_Z - 40, 32], [54, GOALPOST_Z - 40, 32], // wide of the posts: keep the aim line clear
+    [-58, GOALPOST_Z + 20, 34], [58, GOALPOST_Z + 20, 34],
+    [-58, GOALPOST_Z + 85, 34], [58, GOALPOST_Z + 85, 34],
+  ];
+  g.add(hazeCones(spots.slice(0, 4)));
   for (const [x, z, h] of spots) {
     const pole = role(new THREE.Mesh(new THREE.BoxGeometry(0.8, h, 0.8).translate(0, h / 2, 0)), 'floodPole');
     pole.position.set(x, 0, z);
@@ -84,6 +125,7 @@ function floodlights() {
     head.lookAt(0, 0, GOALPOST_Z + 20);
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xfff6e0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
     halo.scale.set(22, 22, 1);
+    halo.userData.halo = true;
     halo.position.set(x, h + 1, z).lerp(new THREE.Vector3(0, h, GOALPOST_Z + 20), 0.03);
     g.add(pole, head, halo);
   }
@@ -143,6 +185,12 @@ export function createScenery(scene, rng, patternTex) {
     parts,
     setVisible(flags) {
       for (const [k, p] of Object.entries(parts)) p.visible = !!flags[k];
+    },
+    /** Real bloom already glows the lamps: shrink the fake halos so they don't stack. */
+    setBloom(on) {
+      parts.floodlights.traverse((o) => {
+        if (o.userData.halo) o.scale.setScalar(on ? 9 : 22);
+      });
     },
   };
 }

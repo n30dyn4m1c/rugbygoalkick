@@ -20,7 +20,7 @@ export const GRAVITY = 9.8;
 export const POINTS_PER_GOAL = 2; // league conversion
 export const MAX_AIM_YAW = (85 * Math.PI) / 180; // never aim behind the kicker
 
-export const BALL_TEE_Y = 0.3;
+export const BALL_TEE_Y = 0.22; // ball centre sitting in the tee cup
 
 // ---------------------------------------------------------------------------
 // Flight physics (fixed step, quadratic drag against the wind-relative velocity)

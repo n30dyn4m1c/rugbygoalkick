@@ -16,6 +16,7 @@ npm run preview      # Preview production build
 npm test             # Vitest unit tests (pure physics/game logic)
 npm run screenshots  # Playwright: screenshots at 390×844, 844×390, 1440×900 → screenshots/
 npm run smoke        # Playwright: real touch/keyboard input checks
+npm run lookdev      # Playwright: look-dev presets at three sizes + relative perf probe
 ```
 
 `npx playwright install chromium` may be needed once for the screenshot script.
@@ -32,7 +33,10 @@ src/
                    conversion.js (tee geometry, suggested spot, aim yaw), wind.js (kicker-relative wording),
                    explain.js (result copy + "why" line)
   game/            round.js + meter.js (pure), game.js (state machine, input handling, flight playback)
-  world/           three.js builders: renderer, lighting, field, posts, stadium, flags, props,
+  world/           three.js builders: renderer, lighting (preset-driven key/fill/hemi, play-area shadows),
+                   field (league markings), posts, stadium, crowd (instanced), scenery (hills, palms,
+                   floodlights + haze, roofs, pattern boards), ball (lathe + tee), sky, patterns,
+                   materials (role-based), lookdev (presets), post (lazy bloom), flags, props,
                    aimPreview (dotted arc + posts marker), teeGuide, cameraRig
   input/           input.js (keyboard + pointer + gamepad → axes and events), bindings.js (remappable keys)
   settings/        storage.js (versioned localStorage, memory fallback), settings.js, scores.js (bests)
@@ -58,6 +62,10 @@ Title (mode buttons on the title itself) → match or tutorial ⇄ pause / setti
 ### Game flow (`game/game.js`)
 
 `idle` (title backdrop orbit) → `establish` (skippable fly-in) → `tee` (choose distance on the conversion line) → `aim` (yaw, elevation, power via slingshot drag or timing meter) → `flight` (playback; result revealed at the goal plane / post hit / landing) → next round or `over`.
+
+### Look (art direction B: floodlit night)
+
+`world/lookdev.js` holds presets; **B** is the game's look (A golden hour and C flat graphic remain for comparison via `?look=A|C`). World meshes carry `userData.role`; a preset builds one material per role and swaps them in, so restyling never touches builders. Sky fog uses the horizon colour. Bloom is optional (`settings.glow`: auto = desktop on / phones off), lazy-loaded. Shadows re-render only when the ball moves (`shadowMap.autoUpdate = false`). UI colour tokens live on `:root` in `style.css`.
 
 ### Physics
 
