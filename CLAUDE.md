@@ -17,6 +17,8 @@ npm test             # Vitest unit tests (pure physics/game logic)
 npm run screenshots  # Playwright: screenshots at 390×844, 844×390, 1440×900 → screenshots/
 npm run smoke        # Playwright: real touch/keyboard input checks
 npm run lookdev      # Playwright: look-dev presets at three sizes + relative perf probe
+npm run check:offline # after build: service worker installs, game reloads and plays offline
+npm run icons        # re-render PWA icons from public/icons/icon.svg
 ```
 
 `npx playwright install chromium` may be needed once for the screenshot script.
@@ -82,6 +84,14 @@ Title (mode buttons on the title itself) → match or tutorial ⇄ pause / setti
 
 120 Hz semi-implicit Euler; gravity + quadratic drag `k·|v−w|·(v−w)` (DRAG_K = 0.008). Goal plane found by segment crossing before first ground contact. Swept sphere vs cylinder collisions for uprights and crossbar. League goal: posts 5.5 m apart, bar 3 m. Tuning is asserted in `test/simulate.test.js` (35 m makeable, 45 m wide into a 7 m/s headwind hard).
 
+### Accessibility
+
+Settings: text size (`textScale` → `--ui-scale` on `:root`; every `--text-*` token multiplies it), high contrast (`body.high-contrast`: opaque panels, white borders, bolder aim preview via `preview.setBold`), reduce motion, meter/preview assists, remappable keys, aim sensitivity. Phase changes are announced to screen readers through `#sr-status` (`hud.announce`) in the same words as the HUD. Nothing is shown by colour alone.
+
+### Performance and shipping
+
+Pixel ratio capped at 2 with adaptive resolution (`world/renderer.js` `adapt()` steps down on slow frames, back up with headroom; `freeze()` disables it for deterministic screenshots). The loop renders once then idles while paused (`loop.invalidate()` requests a redraw). Shadow map is 1024 on mobile, 2048 on desktop; a replaced map is disposed. `vite-plugin-pwa` (`vite.config.js`) precaches everything, so it's installable and offline after the first visit.
+
 ### Debug hook
 
 In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `startMatch()`, `startTutorial()`, `showTitle()`, `pause()`, `resume()`, `openSettings()`, `go(state)`, `setAim({yaw, elevationDeg, teeDist})`, `kick(power)`, `autoplay(n)`, `yawToPosts()`, `state`, `app`, `renderer`, `settings`, `scores`.
@@ -91,4 +101,4 @@ In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `startMa
 - **three** (0.170): rendering
 - **vite** (6): dev server/bundler
 - **@fontsource/barlow-condensed**: self-hosted display font (Latin 700/800)
-- **vitest**, **playwright** (dev): tests and screenshots
+- **vitest**, **playwright**, **vite-plugin-pwa** (dev): tests, screenshots, service worker + manifest

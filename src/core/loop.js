@@ -9,6 +9,7 @@ export function createLoop({ step, render, hz = 120, maxFrame = 0.25 }) {
   let rafId = null;
   let paused = false;
   let manual = false;
+  let dirty = true; // needs a render even while paused (e.g. just resized)
 
   function frame(now) {
     rafId = requestAnimationFrame(frame);
@@ -22,7 +23,11 @@ export function createLoop({ step, render, hz = 120, maxFrame = 0.25 }) {
         acc -= dt;
       }
     }
-    render();
+    // While paused the scene is frozen: draw once, then idle until resumed
+    if (!paused || dirty) {
+      render(now);
+      dirty = false;
+    }
   }
 
   function start() {
@@ -48,6 +53,11 @@ export function createLoop({ step, render, hz = 120, maxFrame = 0.25 }) {
     stop,
     pause() {
       paused = true;
+      dirty = true;
+    },
+    /** Ask for one render while paused (resize, settings preview). */
+    invalidate() {
+      dirty = true;
     },
     resume() {
       paused = false;

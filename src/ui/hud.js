@@ -147,3 +147,10 @@ export function floatPoints(points) {
 export function doink() {
   pop('doink');
 }
+
+/** Screen-reader announcement (polite). Repeating the same text re-announces it. */
+export function announce(text) {
+  const el = $('sr-status');
+  el.textContent = '';
+  requestAnimationFrame(() => (el.textContent = text));
+}

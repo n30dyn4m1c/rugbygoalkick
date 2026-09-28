@@ -52,6 +52,8 @@ export function createAimPreview(scene) {
    * @param {object} result  simulate() result with samples
    * @param {number} tier    0–3
    */
+  let boldness = 1;
+
   function update(result, tier) {
     const cfg = PREVIEW_TIERS[tier] ?? PREVIEW_TIERS[0];
     const samples = result.samples;
@@ -80,7 +82,7 @@ export function createAimPreview(scene) {
       const dist = Math.hypot(b.x - start.x, b.z - start.z);
       // Fade the tail on shortened arcs by shrinking the last dots
       const tail = cfg.fraction < 1 ? Math.min(1, (shown - travelled) / (shown * 0.4)) : 1;
-      const r = (0.045 + dist * 0.004) * (0.35 + 0.65 * tail);
+      const r = (0.045 + dist * 0.004) * (0.35 + 0.65 * tail) * boldness;
       p.set(b.x, b.y, b.z);
       s.set(r, r, r);
       m.compose(p, q, s);
@@ -111,6 +113,12 @@ export function createAimPreview(scene) {
     update,
     set visible(v) {
       group.visible = v;
+    },
+    /** High contrast: bigger dots and marker. */
+    setBold(on) {
+      boldness = on ? 1.5 : 1;
+      marker.scale.setScalar(on ? 1.5 : 1);
+      landing.scale.setScalar(on ? 1.5 : 1);
     },
   };
 }

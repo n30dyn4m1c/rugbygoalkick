@@ -60,7 +60,10 @@ const STATES = [
   // Let the last goal's confetti and +2 finish so the heat map is readable
   ['practice', (g) => { g.seed(SEED); g.startMode('practice'); g.autoplay(6); g.go('tee'); g.step(0.3); g.go('aim'); g.step(4); return new Promise((r) => setTimeout(r, 1500)); }],
   ['pressure', (g) => { g.showTitle(); g.seed(SEED); g.startMode('pressure'); g.step(0.5); g.go('tee'); g.step(4.0); }],
-  ['pressure-summary', (g) => { g.go('aim'); g.kickFor('wide_right'); for (let i = 0; i < 80 && g.state.state !== 'over'; i++) g.step(0.1); g.step(0.2); }],
+  ['a11y-aim', (g) => { g.settings.set({ highContrast: true, textScale: 1.3, tutorialDone: true }); g.showTitle(); g.seed(SEED); g.startMode('pressure'); g.go('aim'); g.setAim({ yaw: g.yawToPosts() }); g.step(1.2); }],
+  ['a11y-settings', (g) => { g.pause(); g.openSettings(); g.step(0.1); }],
+  ['a11y-title', (g) => { g.showTitle(); g.step(1); }],
+  ['pressure-summary', (g) => { g.settings.set({ highContrast: false, textScale: 1 }); g.seed(SEED); g.startMode('pressure'); g.step(0.5); g.go('aim'); g.kickFor('wide_right'); for (let i = 0; i < 80 && g.state.state !== 'over'; i++) g.step(0.1); g.step(0.2); }],
 ];
 
 await mkdir(outDir, { recursive: true });

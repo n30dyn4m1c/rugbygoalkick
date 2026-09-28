@@ -7,11 +7,16 @@
   <meta name="theme-color" content="#0a0d14" />
   <meta name="description" content="Rugby league goal kicking: convert tries against the wind." />
   <title>Rugby Goal Kick</title>
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 
 <body>
-  <div id="stage"></div>
+  <div id="stage" role="img" aria-label="Floodlit rugby league ground, looking toward the posts"></div>
+  <div id="sr-status" class="visually-hidden" role="status" aria-live="polite"></div>
 
   <!-- ===================================================================
        In-game HUD (panels shown by data-phase)
@@ -83,7 +88,7 @@
       </svg>
     </section>
 
-    <section id="result-card" class="result" role="status" aria-live="assertive">
+    <section id="result-card" class="result" aria-labelledby="result-title">
       <div class="result-title" id="result-title"></div>
       <div class="result-points" id="result-points"></div>
       <div class="result-why" id="result-why"></div>
@@ -215,6 +220,16 @@
         </fieldset>
         <fieldset>
           <legend>Accessibility</legend>
+          <fieldset class="segmented" id="set-textScale">
+            <legend class="sub-legend">Text size</legend>
+            <label><input type="radio" name="textScale" value="1" />Normal</label>
+            <label><input type="radio" name="textScale" value="1.15" />Large</label>
+            <label><input type="radio" name="textScale" value="1.3" />Larger</label>
+          </fieldset>
+          <label class="setting toggle">
+            <span>High contrast <small>Solid panels and bolder aim preview</small></span>
+            <input type="checkbox" role="switch" id="set-highContrast" />
+          </label>
           <label class="setting toggle">
             <span>Reduce motion <small>No camera shake; gentler effects. Follows your system setting until changed.</small></span>
             <input type="checkbox" role="switch" id="set-reduceMotion" />

@@ -46,9 +46,11 @@ import { reducedMotion, onSystemMotionChange } from './ui/motion.js';
 // ---------------------------------------------------------------------------
 let rig;
 let post;
-const { scene, camera, renderer } = createRenderer(document.getElementById('stage'), () => {
+let loopRef = null;
+const { scene, camera, renderer, adapt, setAdaptive } = createRenderer(document.getElementById('stage'), () => {
   rig?.fitAspect();
   post?.resize(window.innerWidth, window.innerHeight);
+  loopRef?.invalidate();
 });
 rig = createCameraRig(camera);
 rig.fitAspect();
@@ -114,6 +116,12 @@ function applyAudioSettings(s) {
 function applyMotion() {
   document.body.classList.toggle('reduce-motion', reduced());
 }
+function applyA11y(s) {
+  document.documentElement.style.setProperty('--ui-scale', String(s.textScale));
+  document.body.classList.toggle('high-contrast', s.highContrast);
+  preview.setBold(s.highContrast);
+}
+applyA11y(settings.get());
 applyAudioSettings(settings.get());
 applyMotion();
 onSystemMotionChange(applyMotion);
@@ -124,7 +132,9 @@ settings.subscribe((s) => {
   input.refreshBindings();
   applyAudioSettings(s);
   applyMotion();
+  applyA11y(s);
   updateMusic();
+  loopRef?.invalidate();
   if (s.glow !== lastGlow) {
     lastGlow = s.glow;
     lookdev.apply(lookdev.current);
@@ -154,6 +164,7 @@ const game = createGame({
   rng: () => rng(),
   onPhase(phase) {
     lastPhase = phase;
+    announcePhase(phase);
     tutorial.phase(phase, input.lastDevice);
     heatmap.visible = game.state.mode === 'practice' && ['tee', 'aim', 'flight', 'result', 'timeup'].includes(phase);
   },
@@ -249,6 +260,17 @@ document.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.closest('button')) sfx.uiClick();
 });
 
+// Screen readers hear what each phase needs, in the same words as the HUD
+function announcePhase(phase) {
+  const text = (id) => document.getElementById(id)?.textContent ?? '';
+  requestAnimationFrame(() => {
+    if (phase === 'establish') hud.announce(`${text('caption-text')}. ${text('wind-label')}.`);
+    else if (phase === 'tee') hud.announce(`Place the tee. ${text('tee-info')}. ${text('tee-hint')}.`);
+    else if (phase === 'aim') hud.announce(`Aim. ${text('aim-info')}. ${text('aim-hint')}.`);
+    else if (phase === 'result') hud.announce(`${text('result-title')}. ${text('result-why')}. Score ${text('hud-points')}.`);
+  });
+}
+
 const loop = createLoop({
   step(dt) {
     game.update(dt);
@@ -261,11 +283,13 @@ const loop = createLoop({
       lastTension = tension;
     }
   },
-  render() {
+  render(now) {
+    if (now) adapt(now);
     updateShadowsIfMoved();
     post.render();
   },
 });
+loopRef = loop;
 
 // ---------------------------------------------------------------------------
 // Flow
@@ -432,6 +456,7 @@ if (import.meta.env.DEV) {
     heatmap,
     freeze() {
       loop.setManual(true);
+      setAdaptive(false);
     },
     step(seconds) {
       loop.stepFor(seconds);

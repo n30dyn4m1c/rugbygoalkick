@@ -92,7 +92,7 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 // Settings screen
 // ---------------------------------------------------------------------------
-const TOGGLES = ['invertDragAim', 'alwaysSuggestedTee', 'meterAssist', 'previewAssist', 'introEveryRound', 'muted', 'menuMusic', 'haptics'];
+const TOGGLES = ['invertDragAim', 'alwaysSuggestedTee', 'meterAssist', 'previewAssist', 'introEveryRound', 'muted', 'menuMusic', 'haptics', 'highContrast'];
 
 export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault = () => false, reducedDefault = () => false, hapticsSupported = true }) {
   const s = () => settings.get();
@@ -110,6 +110,11 @@ export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault
     });
   }
   $('row-haptics').hidden = !hapticsSupported;
+
+  for (const el of document.querySelectorAll('input[name="textScale"]')) {
+    el.checked = Number(el.value) === s().textScale;
+    el.addEventListener('change', () => el.checked && settings.set({ textScale: Number(el.value) }));
+  }
 
   const motion = $('set-reduceMotion');
   const syncMotion = () => (motion.checked = s().reduceMotion === 'auto' ? reducedDefault() : s().reduceMotion === 'on');

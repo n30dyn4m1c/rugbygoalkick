@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rugby Goal Kick app icon: floodlit posts, a ball on its arc. Original artwork. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#05070d"/>
+      <stop offset="0.72" stop-color="#1c2436"/>
+      <stop offset="0.72" stop-color="#2f8a36"/>
+      <stop offset="1" stop-color="#256f2a"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff8e6"/>
+      <stop offset="1" stop-color="#fff8e6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <circle cx="92" cy="98" r="70" fill="url(#lamp)" opacity="0.7"/>
+  <circle cx="420" cy="98" r="70" fill="url(#lamp)" opacity="0.7"/>
+  <!-- Pattern band (abstract zigzag) along the touchline -->
+  <path d="M0 368 L32 352 L64 368 L96 352 L128 368 L160 352 L192 368 L224 352 L256 368 L288 352 L320 368 L352 352 L384 368 L416 352 L448 368 L480 352 L512 368" fill="none" stroke="#f5c518" stroke-width="7"/>
+  <!-- Posts -->
+  <rect x="176" y="92" width="18" height="284" rx="4" fill="#f6f7ff"/>
+  <rect x="318" y="92" width="18" height="284" rx="4" fill="#f6f7ff"/>
+  <rect x="176" y="262" width="160" height="16" rx="4" fill="#f6f7ff"/>
+  <rect x="170" y="316" width="30" height="62" rx="6" fill="#c8102e"/>
+  <rect x="312" y="316" width="30" height="62" rx="6" fill="#c8102e"/>
+  <!-- Ball arc through the posts -->
+  <path d="M128 470 Q230 120 262 184" fill="none" stroke="#f5c518" stroke-width="9" stroke-dasharray="2 22" stroke-linecap="round"/>
+  <ellipse cx="262" cy="178" rx="22" ry="34" transform="rotate(35 262 178)" fill="#f5f2ea" stroke="#161616" stroke-width="5"/>
+  <path d="M250 162 Q262 178 274 194" stroke="#c8102e" stroke-width="5" fill="none"/>
+</svg>
