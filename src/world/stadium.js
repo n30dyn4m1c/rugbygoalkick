@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { FIELD_WIDTH } from '../config.js';
 
-function createCrowdTexture(width, height) {
+function createCrowdTexture(width, height, rng) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -14,13 +14,13 @@ function createCrowdTexture(width, height) {
   const fleshTones = ['#d2a679', '#c68e5b', '#e0c8a8', '#8d6e4c', '#f5d0b0'];
   const shirtColors = ['#1565c0', '#c62828', '#fff', '#ffea00', '#4caf50', '#ff9800', '#9c27b0'];
   for (let i = 0; i < width * height * 0.15; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    ctx.fillStyle = fleshTones[Math.floor(Math.random() * fleshTones.length)];
+    const x = rng() * width;
+    const y = rng() * height;
+    ctx.fillStyle = fleshTones[Math.floor(rng() * fleshTones.length)];
     ctx.beginPath();
     ctx.arc(x, y, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = shirtColors[Math.floor(Math.random() * shirtColors.length)];
+    ctx.fillStyle = shirtColors[Math.floor(rng() * shirtColors.length)];
     ctx.fillRect(x - 1, y + 1.5, 2.5, 3);
   }
   const texture = new THREE.CanvasTexture(canvas);
@@ -29,7 +29,7 @@ function createCrowdTexture(width, height) {
   return texture;
 }
 
-export function createStadium(scene) {
+export function createStadium(scene, rng = Math.random) {
   const stadiumGroup = new THREE.Group();
   const concreteMat = new THREE.MeshStandardMaterial({ color: 0x707070 });
   const blueSeatMat = new THREE.MeshStandardMaterial({ color: 0x1565c0 });
@@ -68,7 +68,7 @@ export function createStadium(scene) {
       topMesh.position.set(tx, i * tierHeight + tierHeight + 0.01, tz);
       standGroup.add(topMesh);
 
-      const crowdTex = createCrowdTexture(128, 64);
+      const crowdTex = createCrowdTexture(128, 64, rng);
       const crowdMat = new THREE.MeshBasicMaterial({ map: crowdTex });
       if (facingDir === 'x') {
         const crowdGeo = new THREE.PlaneGeometry(tierHeight, length);

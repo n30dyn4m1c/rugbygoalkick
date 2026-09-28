@@ -4,15 +4,16 @@
 // States per round:
 //   intro_field → intro_try → intro_kick → intro_position → aiming → charging → kicked
 // ---------------------------------------------------------------------------
-import * as THREE from 'three';
 import {
   GOALPOST_Z, TOTAL_ROUNDS, MAX_SPEED, KICK_ANGLE_RAD, POWER_SPEED, AIM_SPEED,
-  MAX_AIM_OFFSET, TILT_SPEED, MAX_TILT, BALL_TEE_Y, BALL_GROUND_Y,
+  MAX_AIM_OFFSET, MAX_AIM_YAW, TILT_SPEED, MAX_TILT, BALL_TEE_Y, BALL_GROUND_Y,
 } from '../config.js';
 import { launchVelocity, positionAt, hasLanded } from '../physics/flight.js';
 import { judgeKick, OUTCOME } from '../physics/scoring.js';
 import { generateRound } from './round.js';
 import * as hud from '../ui/hud.js';
+
+const RESULT_DELAY = 3; // seconds of game time before the next round
 
 const RESULT_MESSAGES = {
   [OUTCOME.GOAL]: ['GOAL! Great kick!', '#00e676'],
@@ -23,13 +24,13 @@ const RESULT_MESSAGES = {
 
 /**
  * @param {object} deps
- * @param {THREE.Scene} deps.scene
  * @param {object} deps.world   { ball, tee, tryMarker, infoLabel, aimTarget, flags }
  * @param {object} deps.rig     camera rig
  * @param {object} deps.keys    held-key state
- * @param {() => number} [deps.rng]
+ * @param {object} deps.clock   game clock (core/clock.js)
+ * @param {() => number} deps.rng
  */
-export function createGame({ world, rig, keys, rng = Math.random }) {
+export function createGame({ world, rig, keys, clock, rng }) {
   const { ball, tee, tryMarker, infoLabel, aimTarget, flags } = world;
 
   const g = {
@@ -39,7 +40,8 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
     introTimer: 0,
     power: 0,
     tilt: 0,
-    aimAngle: 0,
+    aimYaw: 0,
+    kickArmed: false,
     roundInfo: null,
     ballInFlight: false,
     flightTime: 0,
@@ -58,7 +60,7 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
   function setupRound() {
     g.roundInfo = generateRound(g.round, TOTAL_ROUNDS, rng);
     const { tryX, kickX, kickZ, windSpeed, windDirDeg } = g.roundInfo;
-    g.aimAngle = Math.PI; // Start looking straight downfield
+    g.aimYaw = 0; // Start looking straight downfield
 
     placeBallOnTee();
     ball.visible = false;
@@ -69,7 +71,7 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
 
     hud.updateRoundUI(g.round, TOTAL_ROUNDS, g.score);
     hud.updateWindUI(windSpeed, windDirDeg);
-    aimTarget.update(g.aimAngle, kickX, kickZ);
+    aimTarget.update(g.aimYaw, kickX, kickZ);
     hud.updatePowerUI(0);
 
     g.state = 'intro_field';
@@ -91,7 +93,7 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
   }
 
   function launch(power01) {
-    g.ballVel = launchVelocity(power01, g.aimAngle, MAX_SPEED, KICK_ANGLE_RAD);
+    g.ballVel = launchVelocity(power01, g.aimYaw, MAX_SPEED, KICK_ANGLE_RAD);
     g.ballStart = { x: ball.position.x, y: ball.position.y, z: ball.position.z };
     g.flightTime = 0;
     g.ballInFlight = true;
@@ -118,7 +120,7 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
       start: g.ballStart,
       vel: g.ballVel,
       wind: g.roundInfo.wind,
-      landing: { x: ball.position.x, y: ball.position.y, z: ball.position.z },
+      landingTime: g.flightTime,
     });
     const [text, color] = RESULT_MESSAGES[outcome];
     g.resultShown = true;
@@ -131,17 +133,18 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
   }
 
   function scheduleNextRound() {
-    setTimeout(() => {
+    clock.after(RESULT_DELAY, () => {
       if (g.round >= TOTAL_ROUNDS) {
         hud.showGameOver(g.score, TOTAL_ROUNDS);
       } else {
         g.round++;
         setupRound();
       }
-    }, 3000);
+    });
   }
 
   function restart() {
+    clock.clear();
     hud.hideGameOver();
     g.round = 1;
     g.score = 0;
@@ -197,14 +200,42 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
 
       case 'intro_position':
         rig.glide(dt, 2.5);
-        if (g.introTimer > 2.0) {
-          g.state = 'aiming';
-          g.introTimer = 0;
-          aimTarget.group.visible = false; // hidden until the player aims
-          hud.setInstructions('LEFT/RIGHT to aim — UP/DOWN to tilt — Hold SPACE to charge');
-        }
+        if (g.introTimer > 2.0) enterAiming();
         break;
     }
+  }
+
+  function enterAiming() {
+    g.state = 'aiming';
+    g.introTimer = 0;
+    aimTarget.group.visible = false; // hidden until the player aims
+    // A Space held over from the previous round must be released first
+    g.kickArmed = !keys.kick;
+    hud.setInstructions('LEFT/RIGHT to aim \u2014 UP/DOWN to tilt \u2014 Hold SPACE to charge');
+  }
+
+  /** Debug: jump straight to aiming with the camera behind the ball. */
+  function skipIntro() {
+    const { kickX, kickZ } = g.roundInfo;
+    infoLabel.hide();
+    tryMarker.visible = false;
+    ball.visible = true;
+    tee.visible = true;
+    rig.cut({ x: kickX, y: 1.5, z: kickZ + 5 }, { x: kickX, y: 1.5, z: GOALPOST_Z });
+    enterAiming();
+  }
+
+  /** Debug: kick immediately with the given aim and power. */
+  function kickNow(yaw, power01) {
+    if (g.state.startsWith('intro_')) skipIntro();
+    g.aimYaw = yaw;
+    g.power = power01;
+    hud.updatePowerUI(power01);
+    launch(power01);
+    g.state = 'kicked';
+    rig.lookFrom(ball.position);
+    hud.setInstructions('');
+    aimTarget.group.visible = false;
   }
 
   function update(dt, elapsed) {
@@ -221,17 +252,19 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
     switch (g.state) {
       case 'aiming':
         if (keys.left || keys.right) aimTarget.group.visible = true;
-        if (keys.left) g.aimAngle -= AIM_SPEED;
-        if (keys.right) g.aimAngle += AIM_SPEED;
-        g.aimAngle = Math.max(autoAim - MAX_AIM_OFFSET, Math.min(autoAim + MAX_AIM_OFFSET, g.aimAngle));
+        if (keys.left) g.aimYaw -= AIM_SPEED;
+        if (keys.right) g.aimYaw += AIM_SPEED;
+        g.aimYaw = Math.max(autoAim - MAX_AIM_OFFSET, Math.min(autoAim + MAX_AIM_OFFSET, g.aimYaw));
+        g.aimYaw = Math.max(-MAX_AIM_YAW, Math.min(MAX_AIM_YAW, g.aimYaw));
 
         if (keys.up) g.tilt = Math.min(g.tilt + TILT_SPEED * 10, MAX_TILT);
         if (keys.down) g.tilt = Math.max(g.tilt - TILT_SPEED * 10, -MAX_TILT);
 
-        aimTarget.update(g.aimAngle, kickX, kickZ);
+        aimTarget.update(g.aimYaw, kickX, kickZ);
         rig.aim(dt, kickX, kickZ, g.tilt, aimTarget.group.position);
 
-        if (keys.kick) {
+        if (!keys.kick) g.kickArmed = true;
+        if (keys.kick && g.kickArmed) {
           g.state = 'charging';
           g.power = 0;
           aimTarget.group.visible = true;
@@ -258,5 +291,5 @@ export function createGame({ world, rig, keys, rng = Math.random }) {
     }
   }
 
-  return { state: g, setupRound, update, restart };
+  return { state: g, setupRound, update, restart, skipIntro, kickNow };
 }

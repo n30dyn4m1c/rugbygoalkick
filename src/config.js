@@ -6,8 +6,10 @@ export const GOALPOST_Z = -50;
 export const IN_GOAL_DEPTH = 10;
 export const DEAD_BALL_Z = GOALPOST_Z - IN_GOAL_DEPTH;
 export const FIELD_WIDTH = 68;
-export const UPRIGHT_HEIGHT = 15;
-export const UPRIGHT_SEPARATION = 5.6;
+// Rugby league goal: uprights 5.5 m apart, crossbar 3 m high.
+export const POST_GAP = 5.5;
+export const POST_HALF_WIDTH = POST_GAP / 2;
+export const UPRIGHT_HEIGHT = 16;
 export const CROSSBAR_HEIGHT = 3;
 
 // ---------------------------------------------------------------------------
@@ -20,6 +22,7 @@ export const KICK_ANGLE_RAD = Math.PI / 4.2;
 export const POWER_SPEED = 0.7;
 export const AIM_SPEED = 0.02;
 export const MAX_AIM_OFFSET = Math.PI / 3;
+export const MAX_AIM_YAW = (85 * Math.PI) / 180; // never aim behind the kicker
 export const TILT_SPEED = 0.015;
 export const MAX_TILT = 2;
 

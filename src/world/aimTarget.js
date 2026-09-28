@@ -47,18 +47,14 @@ export function createAimTarget(scene) {
   scene.add(group);
 
   /** Re-project the crosshair for the current aim. */
-  function update(aimAngle, kickX, kickZ) {
-    const cosA = Math.cos(aimAngle);
-    if (Math.abs(cosA) < 0.001) {
+  function update(yaw, kickX, kickZ) {
+    const forward = Math.cos(yaw);
+    if (forward < 0.001) {
       group.visible = false;
       return;
     }
-    const t = (GOALPOST_Z - kickZ) / cosA;
-    if (t < 0) {
-      group.visible = false;
-      return;
-    }
-    const targetX = kickX + Math.sin(aimAngle) * t;
+    const t = (kickZ - GOALPOST_Z) / forward;
+    const targetX = kickX + Math.sin(yaw) * t;
 
     // Height estimate at a representative 65% power
     const horizDist = Math.hypot(targetX - kickX, GOALPOST_Z - kickZ);

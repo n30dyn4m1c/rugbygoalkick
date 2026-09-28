@@ -2,6 +2,7 @@
 // Round generation — pure. Difficulty scales with the round number.
 // ---------------------------------------------------------------------------
 import { GOALPOST_Z } from '../config.js';
+import { yawToPosts } from '../physics/flight.js';
 
 /**
  * @param {number} round        1-based round number
@@ -32,7 +33,7 @@ export function generateRound(round, totalRounds, rng) {
   const distVariation = 3;
   const kickZ = GOALPOST_Z + baseDistance + (rng() - 0.5) * distVariation + Math.abs(tryX) * 0.15;
 
-  const autoAim = Math.atan2(0 - kickX, GOALPOST_Z - kickZ);
+  const autoAim = yawToPosts(kickX, kickZ);
 
   // --- Wind: stronger in later rounds (0–2 m/s → 3–8 m/s) ---
   const windDirDeg = rng() * 360;

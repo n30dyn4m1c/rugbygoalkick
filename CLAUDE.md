@@ -4,67 +4,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-3D rugby goal kicking game built with Three.js and Vite. Players kick a rugby ball through goalposts across 10 rounds with increasing difficulty and dynamic wind conditions.
+3D rugby league goal kicking game built with Three.js and Vite. Players convert tries across 10 rounds with increasing difficulty and wind. A revamp is in progress on the `revamp` branch (mobile + desktop, new controls, modes); this file describes the code as it stands.
 
 ## Commands
 
 ```bash
 npm install          # Install dependencies
-npm run dev          # Start dev server (http://localhost:5173)
+npm run dev          # Dev server (http://localhost:5173)
 npm run build        # Production build to dist/
 npm run preview      # Preview production build
+npm test             # Vitest unit tests (pure physics/game logic)
+npm run screenshots  # Playwright: screenshots at 390×844, 844×390, 1440×900 → screenshots/
 ```
 
-No test framework or linter is configured.
+`npx playwright install chromium` may be needed once for the screenshot script.
 
 ## Architecture
 
-**Single-file application**: All game logic lives in `main.js` (~1120 lines) with clear section comments. `index.html` defines the UI overlay structure. `style.css` handles HUD styling.
+`index.html` holds the DOM HUD overlay; `src/main.js` bootstraps everything.
 
-### Game State Machine
+```
+src/
+  config.js        field/league dimensions and tuning constants (single source of truth)
+  core/            rng.js (seeded mulberry32), clock.js (game-time timers), loop.js (120 Hz fixed step)
+  physics/         PURE — flight.js (launch, trajectory), scoring.js (goal-plane judgement)
+  game/            round.js (pure seeded round generator), game.js (state machine)
+  world/           three.js scene builders: renderer, lighting, field, posts, stadium, flags, props, labels, aimTarget, cameraRig
+  input/           keyboard.js (held-key state; releases on blur)
+  ui/              hud.js (DOM updates)
+  debug/           hook.js — window.__game, dev builds only
+test/              Vitest suites for physics, scoring, rounds, rng, clock
+scripts/           screenshots.mjs
+```
 
-States flow linearly per round: `intro_field` → `intro_try` → `intro_kick` → `intro_position` → `aiming` → `charging` → `kicked`
+### Rules
 
-- **intro_\*** states are timer-based camera transitions (1.5–2.5s each)
-- **aiming**: user controls aim angle (LEFT/RIGHT arrows) and camera tilt (UP/DOWN arrows)
-- **charging**: SPACE held charges power bar, release kicks
-- **kicked**: physics simulation runs until ball lands, then `checkResult()` validates goal
+- `physics/`, `game/round.js`, `core/rng.js` and `core/clock.js` must not import three.js or touch the DOM — they are unit-tested in Node.
+- Gameplay timing uses the game clock (`clock.after`), never `setTimeout`, so pausing the loop pauses everything. The loop stops when the tab is hidden.
+- Aim is a **yaw**: 0 = straight downfield (−Z), positive = kicker's right (+X), kept within ±85°.
+- Coordinates: goal line at `z = GOALPOST_Z` (−50), kicker faces −Z, +X is right.
 
-### Physics
+### Game State Machine (`game/game.js`)
 
-Custom projectile motion (no physics library):
-- Parabolic trajectory with gravity and wind as constant acceleration
-- Goal validation solves quadratic equation for ball position at goalpost z-plane
-- Success requires: between uprights (|x| < 2.8m) AND above crossbar (y > 3m)
+`intro_field` → `intro_try` → `intro_kick` → `intro_position` → `aiming` → `charging` → `kicked`, then the next round after 3 s of game time.
 
-### Difficulty Progression
+### Physics & scoring
 
-`difficulty = (currentRound - 1) / 9` scales from 0 to 1:
-- Try position: 10–30m from center (wider kicks)
-- Kick distance: 15–35m from goal line
-- Wind speed: 0–8 m/s
+- Analytic projectile with wind as constant acceleration (to be replaced by fixed-step drag against relative wind).
+- `judgeKick` finds the first goal-plane crossing; a crossing after landing is SHORT.
+- League goal: posts 5.5 m apart (`|x| < 2.75`), crossbar 3 m.
 
-### Camera System
+### Debug hook
 
-Smooth lerp-based interpolation between positions. During flight, camera tracks the ball. Each game state has its own camera target logic in `updateCamera()`.
-
-### 3D Scene Construction
-
-All geometry is procedural (no external models/textures):
-- Stadium with multi-tier seating and canvas-rendered crowd textures
-- Corner flags with real-time wind-driven vertex deformation
-- Crosshair/aim target projected to goalpost plane using trajectory estimation
-
-### Key Functions
-
-- `setupRound()`: initializes round difficulty, positions, wind, camera
-- `animate()`: main requestAnimationFrame loop, drives state machine
-- `updateBallPhysics(dt)`: projectile motion with wind
-- `checkResult()`: goal/miss validation at goalpost plane
-- `updateAimTarget()`: projects aim to crosshair position
-- `updateCamera(dt)`: state-dependent camera interpolation
+In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `skipIntro()`, `kick(yaw, power)`, `state`, `renderer`. The screenshot script freezes real-time stepping and advances the game deterministically.
 
 ## Dependencies
 
-- **three** (v0.170.0): 3D rendering — single import at top of main.js
-- **vite** (v6.0.0): dev server and bundler
+- **three** (0.170): rendering
+- **vite** (6): dev server/bundler
+- **vitest**, **playwright** (dev): tests and screenshots

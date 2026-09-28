@@ -1,16 +1,24 @@
 // ---------------------------------------------------------------------------
 // Ball flight — pure functions, plain {x, y, z} objects, no three.js / DOM.
+//
+// Aim is a yaw angle: 0 = straight downfield (-Z), positive = to the kicker's
+// right (+X). Always within (-π/2, π/2), so there is no angle wrap-around.
 // ---------------------------------------------------------------------------
-import { GRAVITY, BALL_GROUND_Y } from '../config.js';
+import { GRAVITY, BALL_GROUND_Y, GOALPOST_Z } from '../config.js';
 
-/** Launch velocity for a kick. aimAngle is a yaw where π points down -Z. */
-export function launchVelocity(power01, aimAngle, maxSpeed, kickAngle) {
+export function launchVelocity(power01, yaw, maxSpeed, kickAngle) {
   const speed = maxSpeed * Math.max(power01, 0.1);
+  const horiz = speed * Math.cos(kickAngle);
   return {
-    x: speed * Math.cos(kickAngle) * Math.sin(aimAngle),
+    x: horiz * Math.sin(yaw),
     y: speed * Math.sin(kickAngle),
-    z: speed * Math.cos(kickAngle) * Math.cos(aimAngle),
+    z: -horiz * Math.cos(yaw),
   };
+}
+
+/** Yaw from (x, z) that points at the centre of the posts. */
+export function yawToPosts(x, z) {
+  return Math.atan2(0 - x, z - GOALPOST_Z);
 }
 
 /** Analytic position at time t (wind applied as a constant acceleration). */

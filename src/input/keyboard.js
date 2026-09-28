@@ -27,5 +27,14 @@ export function createKeyboard(target = window) {
     held[action] = false;
   });
 
+  // Keys released while the window is unfocused never send keyup.
+  const releaseAll = () => {
+    for (const k of Object.keys(held)) held[k] = false;
+  };
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseAll();
+  });
+
   return held;
 }

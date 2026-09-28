@@ -2,7 +2,7 @@
 // Goalposts
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
-import { GOALPOST_Z, UPRIGHT_HEIGHT, UPRIGHT_SEPARATION, CROSSBAR_HEIGHT } from '../config.js';
+import { GOALPOST_Z, UPRIGHT_HEIGHT, POST_HALF_WIDTH, CROSSBAR_HEIGHT } from '../config.js';
 
 export function createGoalposts(scene) {
   const group = new THREE.Group();
@@ -10,15 +10,15 @@ export function createGoalposts(scene) {
 
   const leftGeo = new THREE.CylinderGeometry(0.12, 0.12, UPRIGHT_HEIGHT, 12);
   const leftPost = new THREE.Mesh(leftGeo, postMat);
-  leftPost.position.set(-UPRIGHT_SEPARATION, UPRIGHT_HEIGHT / 2, 0);
+  leftPost.position.set(-POST_HALF_WIDTH, UPRIGHT_HEIGHT / 2, 0);
   leftPost.castShadow = true;
   group.add(leftPost);
 
   const rightPost = leftPost.clone();
-  rightPost.position.set(UPRIGHT_SEPARATION, UPRIGHT_HEIGHT / 2, 0);
+  rightPost.position.set(POST_HALF_WIDTH, UPRIGHT_HEIGHT / 2, 0);
   group.add(rightPost);
 
-  const barLen = UPRIGHT_SEPARATION * 2;
+  const barLen = POST_HALF_WIDTH * 2;
   const barGeo = new THREE.CylinderGeometry(0.1, 0.1, barLen, 12);
   const crossbar = new THREE.Mesh(barGeo, postMat);
   crossbar.rotation.z = Math.PI / 2;
