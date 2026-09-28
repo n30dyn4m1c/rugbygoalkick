@@ -25,6 +25,7 @@
   --text-sm: 14px;
   --text-md: 16px;
   --text-lg: 20px;
+  --float-top: 52%; /* where the +2 pops, clear of the result card */
 }
 
 * {
@@ -456,6 +457,91 @@ input,
 #hud[data-phase='aim'] #aim-panel { display: block; }
 #hud[data-phase='result'] .result { display: block; }
 
+/* Outcome glyphs: shape, not just colour, tells you what happened */
+.result[data-outcome='wide_left'] .result-points::before { content: '← wide left'; }
+.result[data-outcome='wide_right'] .result-points::before { content: 'wide right →'; }
+.result[data-outcome='short'] .result-points::before { content: '↓ short'; }
+.result[data-outcome='under_bar'] .result-points::before { content: '⤓ under'; }
+.result[data-outcome='post_out'] .result-points::before,
+.result[data-outcome='bar_out'] .result-points::before { content: '✱ woodwork'; }
+.result[data-tone='bad'] .result-points {
+  color: var(--ink-dim);
+  font-size: var(--text-md);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Floating +2 on a goal */
+.float-points {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 0);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(56px, 16vw, 110px);
+  z-index: 2;
+  color: var(--gold);
+  text-shadow: 0 4px 0 var(--red), 0 8px 30px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.float-points.show {
+  animation: float-up 1.3s cubic-bezier(0.5, 0, 0.3, 1) forwards;
+}
+
+/* +2 pops mid-screen, then flies into the score pill (top-left) */
+@keyframes float-up {
+  0% { opacity: 0; left: 50%; top: calc(var(--float-top) + 2%); transform: translate(-50%, 0) scale(0.7); }
+  18% { opacity: 1; left: 50%; top: var(--float-top); transform: translate(-50%, 0) scale(1.05); }
+  40% { opacity: 1; left: 50%; top: var(--float-top); transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; left: calc(var(--safe-l) + var(--gutter) + 40px); top: calc(var(--safe-t) + var(--gutter)); transform: translate(-50%, 0) scale(0.3); }
+}
+
+/* "Doink!" — the visual twin of the post sound */
+.doink {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%) rotate(-6deg);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(34px, 9vw, 60px);
+  color: #fff;
+  background: var(--red);
+  padding: 0 14px 2px;
+  border-radius: 10px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.doink.show {
+  animation: doink-pop 0.9s ease-out forwards;
+}
+
+@keyframes doink-pop {
+  0% { opacity: 0; transform: translateX(-50%) rotate(-6deg) scale(0.6); }
+  20% { opacity: 1; transform: translateX(-50%) rotate(-6deg) scale(1.1); }
+  80% { opacity: 1; transform: translateX(-50%) rotate(-6deg) scale(1); }
+  100% { opacity: 0; }
+}
+
+/* Reduced motion: fades only, no travel or scaling */
+body.reduce-motion .float-points.show,
+body.reduce-motion .doink.show {
+  animation-name: fade-in-out;
+}
+
+@keyframes fade-in-out {
+  0%, 100% { opacity: 0; }
+  20%, 75% { opacity: 1; }
+}
+
+body.reduce-motion * {
+  transition: none !important;
+}
+
 /* In flight: nearly nothing on screen */
 #hud[data-phase='flight'] .score { opacity: 0; }
 #hud[data-phase='idle'] .hud-top,
@@ -510,6 +596,10 @@ input,
 
   .caption {
     bottom: calc(var(--safe-b) + 24%);
+  }
+
+  :root {
+    --float-top: 68%;
   }
 
 }

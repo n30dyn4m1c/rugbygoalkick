@@ -83,6 +83,9 @@
       <button id="btn-next" class="btn" type="button">Next kick</button>
     </section>
 
+    <div id="float-points" class="float-points" aria-hidden="true">+2</div>
+    <div id="doink" class="doink" aria-hidden="true">Doink!</div>
+
     <div id="coach" class="coach" role="note" aria-live="polite" hidden>
       <p id="coach-text"></p>
       <button id="btn-coach-skip" class="link-btn" type="button">Skip tutorial</button>
@@ -160,6 +163,48 @@
           <label class="setting toggle">
             <span>Fly-over before every kick <small>Otherwise only the first kick</small></span>
             <input type="checkbox" role="switch" id="set-introEveryRound" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Sound</legend>
+          <label class="setting toggle">
+            <span>Mute all</span>
+            <input type="checkbox" role="switch" id="set-muted" />
+          </label>
+          <label class="setting range">
+            <span>Master</span>
+            <input type="range" id="vol-master" min="0" max="1" step="0.05" />
+            <output id="out-master"></output>
+          </label>
+          <label class="setting range">
+            <span>Effects</span>
+            <input type="range" id="vol-sfx" min="0" max="1" step="0.05" />
+            <output id="out-sfx"></output>
+          </label>
+          <label class="setting range">
+            <span>Crowd</span>
+            <input type="range" id="vol-crowd" min="0" max="1" step="0.05" />
+            <output id="out-crowd"></output>
+          </label>
+          <label class="setting range">
+            <span>Music</span>
+            <input type="range" id="vol-music" min="0" max="1" step="0.05" />
+            <output id="out-music"></output>
+          </label>
+          <label class="setting toggle">
+            <span>Drum groove on menus</span>
+            <input type="checkbox" role="switch" id="set-menuMusic" />
+          </label>
+          <label class="setting toggle" id="row-haptics">
+            <span>Vibration <small>On supported phones</small></span>
+            <input type="checkbox" role="switch" id="set-haptics" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Accessibility</legend>
+          <label class="setting toggle">
+            <span>Reduce motion <small>No camera shake; gentler effects. Follows your system setting until changed.</small></span>
+            <input type="checkbox" role="switch" id="set-reduceMotion" />
           </label>
         </fieldset>
         <fieldset>

@@ -50,7 +50,9 @@ const STATES = [
     await page.evaluate(() => window.__game.step(0.2));
   }],
   ['flight', (g) => { g.kick(0.72); g.step(1.0); }],
-  ['result', (g) => g.step(2.2)],
+  // Goal celebration: +2, confetti, crowd on its feet (just after the reveal)
+  ['result', (g) => { for (let i = 0; i < 60 && !g.state.flight.revealed; i++) g.step(0.1); g.step(0.45); }],
+  ['doink', (g) => { g.state.flight.hold = 99; g.step(0.2); g.go('aim'); g.kickFor('post_out') && g.step(0.05); const f = g.state.flight; g.step(Math.max(0, (f.result.events[0]?.t ?? 0) + 0.25)); }],
   ['pause', (g) => { g.pause(); g.step(0.1); }],
   ['settings', (g) => { g.openSettings(); g.step(0.1); }],
   ['summary', (g) => { g.resume(); g.autoplay(10); g.step(0.2); }],
@@ -90,7 +92,7 @@ try {
       // Let the browser present the frame rendered by step().
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       const file = `${outDir}/${vp.name}-${name}.png`;
-      await page.screenshot({ path: file });
+      await page.screenshot({ path: file, timeout: 90000 }); // software GL + bloom is slow
       const info = await page.evaluate(() => ({
         state: window.__game.state.state,
         calls: window.__game.renderer.info.render.calls,

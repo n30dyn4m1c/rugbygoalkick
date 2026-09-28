@@ -101,9 +101,10 @@ export function setDrag(drag) {
   label.textContent = drag.cancel ? 'Release to cancel' : `${Math.round(drag.power * 100)}%`;
 }
 
-export function showResult({ title, tone, points, why, next }) {
+export function showResult({ outcome, title, tone, points, why, next }) {
   const card = $('result-card');
   card.dataset.tone = tone;
+  card.dataset.outcome = outcome;
   $('result-title').textContent = title;
   $('result-points').textContent = points ? `+${points}` : '';
   $('result-why').textContent = why;
@@ -116,4 +117,21 @@ export function onNext(fn) {
 
 export function onPause(fn) {
   $('btn-pause').addEventListener('click', fn);
+}
+
+/** Restart a one-shot CSS animation on an element. */
+function pop(id) {
+  const el = $(id);
+  el.classList.remove('show');
+  void el.offsetWidth; // reflow so the animation restarts
+  el.classList.add('show');
+}
+
+export function floatPoints(points) {
+  $('float-points').textContent = `+${points}`;
+  pop('float-points');
+}
+
+export function doink() {
+  pop('doink');
 }

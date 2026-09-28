@@ -44,13 +44,21 @@ export function close() {
     focusables($(prev))[0]?.focus({ preventScroll: true });
   } else {
     lastFocus?.focus?.({ preventScroll: true });
+    releaseHiddenFocus();
   }
   return id;
+}
+
+/** Drop focus left on a control inside a now-hidden screen, so keys reach the game. */
+function releaseHiddenFocus() {
+  const el = document.activeElement;
+  if (el instanceof HTMLElement && el.closest('.screen[hidden]')) el.blur();
 }
 
 export function closeAll() {
   while (stack.length) $(stack.pop()).hidden = true;
   document.body.classList.remove('menu-open');
+  releaseHiddenFocus();
 }
 
 /** Move focus within the top screen (arrow keys / d-pad). */
@@ -84,10 +92,30 @@ window.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 // Settings screen
 // ---------------------------------------------------------------------------
-const TOGGLES = ['invertDragAim', 'alwaysSuggestedTee', 'meterAssist', 'previewAssist', 'introEveryRound'];
+const TOGGLES = ['invertDragAim', 'alwaysSuggestedTee', 'meterAssist', 'previewAssist', 'introEveryRound', 'muted', 'menuMusic', 'haptics'];
 
-export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault = () => false }) {
+export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault = () => false, reducedDefault = () => false, hapticsSupported = true }) {
   const s = () => settings.get();
+
+  // Volumes
+  for (const bus of ['master', 'sfx', 'crowd', 'music']) {
+    const el = $(`vol-${bus}`);
+    const out = $(`out-${bus}`);
+    const show = () => (out.textContent = `${Math.round(Number(el.value) * 100)}%`);
+    el.value = String(s().volumes[bus]);
+    show();
+    el.addEventListener('input', () => {
+      show();
+      settings.set({ volumes: { ...s().volumes, [bus]: Number(el.value) } });
+    });
+  }
+  $('row-haptics').hidden = !hapticsSupported;
+
+  const motion = $('set-reduceMotion');
+  const syncMotion = () => (motion.checked = s().reduceMotion === 'auto' ? reducedDefault() : s().reduceMotion === 'on');
+  syncMotion();
+  motion.addEventListener('change', () => settings.set({ reduceMotion: motion.checked ? 'on' : 'off' }));
+  $('screen-settings').addEventListener('focusin', syncMotion);
 
   const glow = $('set-glow');
   const syncGlow = () => (glow.checked = s().glow === 'auto' ? glowDefault() : s().glow === 'on');
@@ -99,6 +127,7 @@ export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault
     const el = $(`set-${key}`);
     el.checked = !!s()[key];
     el.addEventListener('change', () => settings.set({ [key]: el.checked }));
+    settings.subscribe((v) => (el.checked = !!v[key])); // e.g. the M key toggles mute
   }
 
   const hand = $('set-leftHanded');

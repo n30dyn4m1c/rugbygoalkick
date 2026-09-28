@@ -13,6 +13,9 @@ export function createCameraRig(camera) {
   const posGoal = pos.clone();
   const lookGoal = look.clone();
   let rate = 3;
+  let shake = 0; // metres, decays quickly
+  let shakeDecay = 8;
+  let shakeT = 0;
 
   function fitAspect() {
     const hfov = (MIN_HFOV_DEG * Math.PI) / 180;
@@ -86,11 +89,24 @@ export function createCameraRig(camera) {
       );
     },
 
+    /** Short, subtle shake (callers skip it under reduced motion). */
+    shake(amount = 0.05, decay = 9) {
+      shake = Math.max(shake, amount);
+      shakeDecay = decay;
+    },
+
     update(dt) {
       const k = 1 - Math.exp(-rate * dt);
       pos.lerp(posGoal, k);
       look.lerp(lookGoal, Math.min(1, k * 1.4));
       camera.position.copy(pos);
+      if (shake > 0.001) {
+        shakeT += dt;
+        // Smooth low-frequency wobble (no strobing), dying out in a fraction of a second
+        camera.position.x += Math.sin(shakeT * 37) * shake;
+        camera.position.y += Math.sin(shakeT * 29 + 1.3) * shake * 0.7;
+        shake *= Math.exp(-shakeDecay * dt);
+      }
       camera.lookAt(look);
     },
 

@@ -20,6 +20,7 @@ import { explain, RESULT_COPY } from '../physics/explain.js';
 import { generateRound } from './round.js';
 import { meterPower } from './meter.js';
 import { keyLabel } from '../input/bindings.js';
+import { createEmitter } from '../core/events.js';
 import * as hud from '../ui/hud.js';
 
 const DEG = Math.PI / 180;
@@ -37,6 +38,8 @@ const BALL_SPIN = -2.2 * Math.PI * 2; // end over end, rad/s
 const SPIRAL_SPIN = 3.5 * Math.PI * 2; // torpedo roll, rad/s
 const SPIRAL_BELOW_DEG = 30; // low, flat kicks spiral; conversions tumble end over end
 const BALL_AXIS = new THREE.Vector3(0, 1, 0); // ball's long axis in model space
+const SLOWMO = 0.35; // playback rate as a goal crosses the plane
+const SLOWMO_WINDOW = [0.3, 0.3]; // seconds before / after the crossing
 
 /**
  * @param {object} deps
@@ -51,6 +54,12 @@ const BALL_AXIS = new THREE.Vector3(0, 1, 0); // ball's long axis in model space
  */
 export function createGame({ world, rig, camera, input, settings, rng, onPhase = () => {}, onMatchEnd = () => {} }) {
   const { ball, tee, tryMarker, preview, teeGuide, flags } = world;
+  // Feedback events for audio, haptics and effects:
+  //   teeStep, aimTick, elevTick, meterStart, kick, post, land, result
+  const events = createEmitter();
+  let lastTeeStep = null;
+  let lastAimTick = null;
+  let lastElevTick = null;
 
   const g = {
     state: 'idle',
@@ -166,10 +175,13 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
         ball.visible = true;
         tee.visible = true;
         teeGuide.visible = true;
+        lastTeeStep = null;
         refreshTee();
         break;
 
       case 'aim':
+        lastAimTick = null;
+        lastElevTick = null;
         tryMarker.visible = false;
         ball.visible = true;
         tee.visible = true;
@@ -209,6 +221,9 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
 
   function refreshTee() {
     const { tryX } = g.roundInfo;
+    const stepM = Math.round(g.teeDist);
+    if (lastTeeStep !== null && stepM !== lastTeeStep) events.emit('teeStep', { dist: g.teeDist });
+    lastTeeStep = stepM;
     teeGuide.update(tryX, g.teeDist, g.suggestedDist, g.time);
     placeBallOnTee();
     const sug = Math.abs(g.teeDist - g.suggestedDist) < 0.25 ? ' · suggested' : ` · suggested ${g.suggestedDist.toFixed(0)} m`;
@@ -229,7 +244,8 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     const focus = result.crossing
       ? { x: result.crossing.x, y: result.crossing.y, z: GOALPOST_Z }
       : result.events[0]?.point ?? result.landing ?? result.samples.at(-1);
-    g.flight = { kick: k, result, focus, spiral: g.elevationDeg < SPIRAL_BELOW_DEG, roll: 0, t: 0, revealT: Math.min(revealT, result.duration), revealed: false, doneAt: null };
+    events.emit('kick', { power, result });
+    g.flight = { kick: k, result, focus, spiral: g.elevationDeg < SPIRAL_BELOW_DEG, roll: 0, nextEvent: 0, landed: false, t: 0, revealT: Math.min(revealT, result.duration), revealed: false, hold: 0 };
     go('flight');
   }
 
@@ -248,7 +264,9 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     }
     g.log.push({ round: g.round, outcome, teeDist: g.teeDist, tryX: g.roundInfo.tryX, crossing: f.result.crossing });
     hud.setScore(g.round, g.totalRounds, g.points);
+    events.emit('result', { outcome, scored, crossing: f.result.crossing, focus: f.focus, streak: g.streak });
     hud.showResult({
+      outcome,
       title: copy.title,
       tone: copy.tone,
       points: scored ? POINTS_PER_GOAL : 0,
@@ -258,7 +276,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     hud.setPhase('result');
     onPhase('result');
     f.revealed = true;
-    f.doneAt = f.t;
+    f.hold = 0;
   }
 
   function longIntro() {
@@ -330,6 +348,9 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   function setElevation(deg) {
     g.elevationDeg = Math.min(Math.max(deg, ELEVATION_MIN_DEG), ELEVATION_MAX_DEG);
     hud.setElevation(g.elevationDeg);
+    const tick = Math.round(g.elevationDeg);
+    if (lastElevTick !== null && tick !== lastElevTick) events.emit('elevTick', { deg: tick });
+    lastElevTick = tick;
   }
 
   function pullMax() {
@@ -367,6 +388,10 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       power = Math.max(s.power, DRAG_CANCEL);
     }
 
+    const aimTick = Math.round(g.yaw / DEG);
+    if (lastAimTick !== null && aimTick !== lastAimTick) events.emit('aimTick', { deg: aimTick });
+    lastAimTick = aimTick;
+
     updatePreview(power);
     rig.aimShot(teePos(), g.yaw);
     placeBallOnTee();
@@ -381,8 +406,17 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
 
   function updateFlight(dt) {
     const f = g.flight;
-    const { samples, landing, duration } = f.result;
-    f.t = Math.min(f.t + dt, duration);
+    const { samples, landing, duration, crossing, events: hits } = f.result;
+    // Brief slow motion as a goal goes through the posts
+    let rate = 1;
+    if (crossing && isGoal(f.result.outcome) && f.t > crossing.t - SLOWMO_WINDOW[0] && f.t < crossing.t + SLOWMO_WINDOW[1]) rate = SLOWMO;
+    f.rate = rate;
+    f.t = Math.min(f.t + dt * rate, duration);
+    while (f.nextEvent < hits.length && f.t >= hits[f.nextEvent].t) events.emit('post', hits[f.nextEvent++]);
+    if (landing && !f.landed && f.t >= landing.t) {
+      f.landed = true;
+      events.emit('land', landing);
+    }
     const idx = f.t / DT;
     const i = Math.min(Math.floor(idx), samples.length - 2);
     const a = samples[i];
@@ -414,7 +448,11 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     else rig.resultShot(f.focus);
 
     if (!f.revealed && f.t >= f.revealT) revealResult();
-    if (f.revealed && f.t - f.doneAt >= RESULT_HOLD) nextRound();
+    // Hold the result on game time, not playback time (playback stops when the ball settles)
+    if (f.revealed) {
+      f.hold += dt;
+      if (f.hold >= RESULT_HOLD) nextRound();
+    }
   }
 
   // --- input events -------------------------------------------------------------
@@ -433,7 +471,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   input.on('any', () => {
     if (!g.active) return;
     if (g.state === 'establish' && g.stateTime > INPUT_GRACE) go('tee');
-    else if (g.flight?.revealed && g.flight.t - g.flight.doneAt > 0.35) nextRound();
+    else if (g.flight?.revealed && g.flight.hold > 0.35) nextRound();
   });
 
   input.on('press', ({ action }) => {
@@ -444,6 +482,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       if (!g.meter.running) {
         g.meter = { running: true, t: 0 };
         onPhase('meter');
+        events.emit('meterStart');
         hud.setAimInfo(`${g.teeDist.toFixed(0)} m out · target ${angleDeg().toFixed(1)}°`, hint('meter'));
       } else {
         kick(meterPower(g.meter.t, meterPeriod()));
@@ -566,6 +605,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
 
   return {
     state: g,
+    on: events.on,
     start,
     idle,
     update,
@@ -589,6 +629,20 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
         placeBallOnTee();
       },
       yawToPosts: () => yawToPosts(g.roundInfo.tryX, GOALPOST_Z + g.teeDist),
+      /** Find an aim + power that produces `outcome` from the current tee (screenshots/tests). */
+      findKick(outcome) {
+        const base = yawToPosts(g.roundInfo.tryX, GOALPOST_Z + g.teeDist);
+        for (let p = 0.55; p <= 1; p += 0.05) {
+          for (let dy = 0; dy <= 0.25; dy += 0.0015) {
+            for (const sgn of [1, -1]) {
+              const yaw = base + dy * sgn;
+              const r = simulate({ ...currentKick(p), yaw }, g.roundInfo.wind, { record: false });
+              if (r.outcome === outcome) return { yaw, power: p };
+            }
+          }
+        }
+        return null;
+      },
     },
   };
 }

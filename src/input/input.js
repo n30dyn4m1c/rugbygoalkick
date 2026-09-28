@@ -38,7 +38,10 @@ export function createInput({ surface, getBindings }) {
     setDevice('keyboard');
     // A focused button / slider keeps its native keys (Space, Enter, arrows);
     // only Pause still reaches the game.
-    if (e.target instanceof HTMLElement && e.target.matches('button, input, select, textarea')) {
+    const onControl = e.target instanceof HTMLElement
+      && e.target.matches('button, input, select, textarea')
+      && e.target.offsetParent !== null; // a hidden control keeps no claim on the keys
+    if (onControl) {
       if (actions?.includes('pause') && !e.repeat) events.emit('press', { action: 'pause', source: 'keyboard' });
       return;
     }
@@ -51,7 +54,7 @@ export function createInput({ surface, getBindings }) {
     if (e.repeat) return;
     events.emit('any', { source: 'keyboard' });
     for (const a of actions) {
-      if (a === 'kick' || a === 'confirm' || a === 'pause') events.emit('press', { action: a, source: 'keyboard' });
+      if (a === 'kick' || a === 'confirm' || a === 'pause' || a === 'mute') events.emit('press', { action: a, source: 'keyboard' });
     }
   });
 

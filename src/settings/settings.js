@@ -14,6 +14,11 @@ export const DEFAULT_SETTINGS = {
   introEveryRound: false,
   tutorialDone: false,
   glow: 'auto', // bloom: auto (desktop on, phones off) | on | off
+  volumes: { master: 0.8, sfx: 0.9, crowd: 0.7, music: 0.5 },
+  muted: false,
+  menuMusic: true,
+  haptics: true,
+  reduceMotion: 'auto', // auto (system setting) | on | off
   bindings: DEFAULT_BINDINGS,
 };
 

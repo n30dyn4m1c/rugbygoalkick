@@ -10,6 +10,7 @@ export const ACTIONS = {
   confirm: 'Confirm',
   fine: 'Fine adjust (hold)',
   pause: 'Pause',
+  mute: 'Mute sound',
 };
 
 export const DEFAULT_BINDINGS = {
@@ -21,6 +22,7 @@ export const DEFAULT_BINDINGS = {
   confirm: ['Enter', 'NumpadEnter'],
   fine: ['ShiftLeft', 'ShiftRight'],
   pause: ['Escape', 'KeyP'],
+  mute: ['KeyM'],
 };
 
 /** Reverse map code → actions for fast lookup. */

@@ -50,6 +50,7 @@ try {
     // Two taps from page load to the first kick: Play match, Kick from here.
     await tapEl('Play match');
     check('touch: tap 1 (Play match) starts the match', await waitState(page, 'establish', 1500));
+    check('touch: first tap unlocks audio', await page.waitForFunction(() => window.__game.audio.ready, null, { timeout: 3000 }).then(() => true, () => false));
     check('touch: first-launch tutorial coach mark is shown', await page.evaluate(() => !document.getElementById('coach').hidden));
     check('touch: establishing shot hands over to the tee by itself', await waitState(page, 'tee', 4000));
     await page.waitForTimeout(400);
@@ -159,6 +160,11 @@ try {
     check('keys: second Space kicks', await waitState(page, 'flight', 1500));
     const power = await page.evaluate(() => window.__game.state.lastPower);
     check('keys: meter power is not pinned at 100%', power > 0.05 && power < 0.99, `power ${power.toFixed(2)}`);
+
+    await page.keyboard.press('KeyM');
+    check('keys: M mutes', await page.evaluate(() => window.__game.settings.get().muted === true));
+    await page.keyboard.press('KeyM');
+    check('keys: M unmutes', await page.evaluate(() => window.__game.settings.get().muted === false));
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);

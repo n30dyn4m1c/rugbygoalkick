@@ -42,6 +42,8 @@ src/
   settings/        storage.js (versioned localStorage, memory fallback), settings.js, scores.js (bests)
   ui/              hud.js (DOM HUD; CSS shows panels by data-phase), screens.js (title/pause/settings/
                    summary, focus + key remapping), tutorial.js (interactive coach marks)
+  audio/           engine.js (context, buses, unlock), sfx.js, crowd.js (tension bed, cheer/groan), music.js
+                   (kundu-style menu groove) — all synthesised with Web Audio, no files
   debug/           hook.js — window.__game, dev builds only
 test/              Vitest suites
 scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet.py (dev helper)
@@ -66,6 +68,10 @@ Title (mode buttons on the title itself) → match or tutorial ⇄ pause / setti
 ### Look (art direction B: floodlit night)
 
 `world/lookdev.js` holds presets; **B** is the game's look (A golden hour and C flat graphic remain for comparison via `?look=A|C`). World meshes carry `userData.role`; a preset builds one material per role and swaps them in, so restyling never touches builders. Sky fog uses the horizon colour. Bloom is optional (`settings.glow`: auto = desktop on / phones off), lazy-loaded. Shadows re-render only when the ball moves (`shadowMap.autoUpdate = false`). UI colour tokens live on `:root` in `style.css`.
+
+### Feedback
+
+`game.on(event)` emits `teeStep`, `aimTick`, `elevTick`, `meterStart`, `kick`, `post`, `land`, `result`; `main.js` maps them to sound, haptics (`ui/haptics.js`), camera shake, confetti (`world/fx.js`) and HUD pops. Every meaningful sound has a visual twin (e.g. the post "doink" shows a Doink! badge). Reduced motion (`ui/motion.js`: setting or `prefers-reduced-motion`) removes shake and travel animations. Goals get a brief slow-motion (playback rate 0.35) around the crossing.
 
 ### Physics
 
