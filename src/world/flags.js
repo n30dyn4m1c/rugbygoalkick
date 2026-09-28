@@ -42,15 +42,18 @@ export function createCornerFlags(scene) {
     createCornerFlag(scene, FIELD_WIDTH / 2, GOALPOST_Z),
   ];
 
-  function update(time, windDirDeg, windSpeed) {
-    const windDirRad = (windDirDeg * Math.PI) / 180;
+  /** Stream the flags with the air: wind = {x, z} in m/s. */
+  function update(time, wind) {
+    const windSpeed = Math.hypot(wind.x, wind.z);
     const windNorm = Math.min(windSpeed / 8, 1);
+    const dirX = windSpeed > 1e-6 ? wind.x / windSpeed : 0;
+    const dirZ = windSpeed > 1e-6 ? wind.z / windSpeed : 0;
 
     for (const { flag } of flags) {
       const positions = flag.geometry.attributes.position;
       const flutter = Math.sin(time * 12) * 0.08 * windNorm;
-      const tipX = (Math.sin(windDirRad) * FLAG_WIDTH * windNorm) + flutter;
-      const tipZ = (Math.cos(windDirRad) * FLAG_WIDTH * windNorm) + flutter * 0.5;
+      const tipX = dirX * FLAG_WIDTH + flutter;
+      const tipZ = dirZ * FLAG_WIDTH + flutter * 0.5;
       const limpX = FLAG_WIDTH * 0.15;
       const limpZ = 0;
       const finalX = limpX + (tipX - limpX) * windNorm;

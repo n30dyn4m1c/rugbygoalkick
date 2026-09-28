@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
 
-export function createRenderer(container = document.body) {
+export function createRenderer(container = document.body, onResize = () => {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb);
   scene.fog = new THREE.Fog(0x87ceeb, 80, 200);
@@ -16,11 +16,13 @@ export function createRenderer(container = document.body) {
   renderer.shadowMap.enabled = true;
   container.appendChild(renderer.domElement);
 
-  window.addEventListener('resize', () => {
+  function resize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+    onResize();
+  }
+  window.addEventListener('resize', resize);
 
   return { scene, camera, renderer };
 }

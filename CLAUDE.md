@@ -15,6 +15,7 @@ npm run build        # Production build to dist/
 npm run preview      # Preview production build
 npm test             # Vitest unit tests (pure physics/game logic)
 npm run screenshots  # Playwright: screenshots at 390×844, 844×390, 1440×900 → screenshots/
+npm run smoke        # Playwright: real touch/keyboard input checks
 ```
 
 `npx playwright install chromium` may be needed once for the screenshot script.
@@ -25,38 +26,41 @@ npm run screenshots  # Playwright: screenshots at 390×844, 844×390, 1440×900 
 
 ```
 src/
-  config.js        field/league dimensions and tuning constants (single source of truth)
-  core/            rng.js (seeded mulberry32), clock.js (game-time timers), loop.js (120 Hz fixed step)
-  physics/         PURE — flight.js (launch, trajectory), scoring.js (goal-plane judgement)
-  game/            round.js (pure seeded round generator), game.js (state machine)
-  world/           three.js scene builders: renderer, lighting, field, posts, stadium, flags, props, labels, aimTarget, cameraRig
-  input/           keyboard.js (held-key state; releases on blur)
-  ui/              hud.js (DOM updates)
+  config.js        league dimensions, physics and tuning constants (single source of truth)
+  core/            rng.js (seeded mulberry32), clock.js (game-time timers), loop.js (120 Hz fixed step), events.js
+  physics/         PURE — simulate.js (fixed-step flight, drag vs wind, post/bar collisions, outcomes),
+                   conversion.js (tee geometry, suggested spot, aim yaw), wind.js (kicker-relative wording),
+                   explain.js (result copy + "why" line)
+  game/            round.js + meter.js (pure), game.js (state machine, input handling, flight playback)
+  world/           three.js builders: renderer, lighting, field, posts, stadium, flags, props,
+                   aimPreview (dotted arc + posts marker), teeGuide, cameraRig
+  input/           input.js (keyboard + pointer + gamepad → axes and events), bindings.js (remappable keys)
+  settings/        storage.js (versioned localStorage, memory fallback), settings.js
+  ui/              hud.js (DOM HUD; CSS shows panels by data-phase)
   debug/           hook.js — window.__game, dev builds only
-test/              Vitest suites for physics, scoring, rounds, rng, clock
-scripts/           screenshots.mjs
+test/              Vitest suites
+scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet.py (dev helper)
 ```
 
 ### Rules
 
-- `physics/`, `game/round.js`, `core/rng.js` and `core/clock.js` must not import three.js or touch the DOM — they are unit-tested in Node.
-- Gameplay timing uses the game clock (`clock.after`), never `setTimeout`, so pausing the loop pauses everything. The loop stops when the tab is hidden.
-- Aim is a **yaw**: 0 = straight downfield (−Z), positive = kicker's right (+X), kept within ±85°.
-- Coordinates: goal line at `z = GOALPOST_Z` (−50), kicker faces −Z, +X is right.
+- `physics/`, `game/round.js`, `game/meter.js`, `core/rng.js`, `core/clock.js` and `settings/storage.js` must not import three.js or touch the DOM — they are unit-tested in Node.
+- **One simulation**: the aim preview and the real kick both come from `simulate()`. The kick is simulated once at contact and played back sample by sample, so preview, flight and result can never disagree. No hidden randomness.
+- Gameplay timing uses the game clock / fixed step, never `setTimeout`. The loop stops when the tab is hidden.
+- Aim is a **yaw**: 0 = straight downfield (−Z), positive = kicker's right (+X), clamped to ±85°.
+- Coordinates: goal line at `z = GOALPOST_Z` (−50), kicker faces −Z, +X is right. Wind is an air velocity `{x, z}` (where it pushes the ball).
 
-### Game State Machine (`game/game.js`)
+### Game flow (`game/game.js`)
 
-`intro_field` → `intro_try` → `intro_kick` → `intro_position` → `aiming` → `charging` → `kicked`, then the next round after 3 s of game time.
+`establish` (skippable fly-in) → `tee` (choose distance on the conversion line) → `aim` (yaw, elevation, power via slingshot drag or timing meter) → `flight` (playback; result revealed at the goal plane / post hit / landing) → next round or `over`.
 
-### Physics & scoring
+### Physics
 
-- Analytic projectile with wind as constant acceleration (to be replaced by fixed-step drag against relative wind).
-- `judgeKick` finds the first goal-plane crossing; a crossing after landing is SHORT.
-- League goal: posts 5.5 m apart (`|x| < 2.75`), crossbar 3 m.
+120 Hz semi-implicit Euler; gravity + quadratic drag `k·|v−w|·(v−w)` (DRAG_K = 0.008). Goal plane found by segment crossing before first ground contact. Swept sphere vs cylinder collisions for uprights and crossbar. League goal: posts 5.5 m apart, bar 3 m. Tuning is asserted in `test/simulate.test.js` (35 m makeable, 45 m wide into a 7 m/s headwind hard).
 
 ### Debug hook
 
-In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `skipIntro()`, `kick(yaw, power)`, `state`, `renderer`. The screenshot script freezes real-time stepping and advances the game deterministically.
+In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `go(state)`, `setAim({yaw, elevationDeg, teeDist})`, `kick(power)`, `yawToPosts()`, `state`, `renderer`, `settings`.
 
 ## Dependencies
 

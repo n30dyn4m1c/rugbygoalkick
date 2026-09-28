@@ -17,7 +17,7 @@ export function createBall(scene) {
   const geo = new THREE.SphereGeometry(0.22, 16, 16);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const ball = new THREE.Mesh(geo, mat);
-  ball.scale.set(1, 1.5, 1);
+  ball.scale.set(1, 1.5, 1); // long axis along local Y
   ball.castShadow = true;
   scene.add(ball);
 

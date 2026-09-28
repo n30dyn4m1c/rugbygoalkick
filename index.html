@@ -3,46 +3,85 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Rugby Kick</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>Rugby Goal Kick</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 
 <body>
-  <div id="ui">
-    <div id="round-info">
-      <div id="round-counter">Round 1 / 10</div>
-      <div id="score-display">Goals: 0 / 10</div>
-    </div>
+  <div id="stage"></div>
 
-    <div id="wind-indicator">
-      <div id="wind-compass">
-        <div class="compass-label compass-n">N</div>
-        <div class="compass-label compass-s">S</div>
-        <div class="compass-label compass-e">E</div>
-        <div class="compass-label compass-w">W</div>
-        <div id="wind-arrow-ptr"></div>
+  <div id="hud" data-phase="establish" data-device="touch">
+    <header class="hud-top">
+      <div class="pill score" aria-live="polite">
+        <span id="hud-kick">Kick 1/10</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span id="hud-points">0 pts</span>
       </div>
-      <div id="wind-text">Wind: 0.0 m/s N</div>
-    </div>
-    <div id="power-bar-container">
-      <div id="power-bar-label">POWER</div>
-      <div id="power-bar-track">
-        <div id="power-bar-fill"></div>
-      </div>
-      <div id="power-value">0%</div>
-    </div>
-    <div id="instructions">Use LEFT/RIGHT to aim &mdash; Hold SPACE to charge &mdash; Release to kick</div>
-    <div id="message"></div>
-  </div>
-  <div id="game-over">
-    <div id="game-over-content">
-      <div id="game-over-title">GAME OVER</div>
-      <div id="final-score">You scored 0 / 10</div>
+    </header>
 
-      <button id="play-again-btn">Play Again</button>
+    <section id="wind" class="pill wind" role="status" aria-label="Wind">
+      <svg class="wind-dial" viewBox="-20 -20 40 40" aria-hidden="true">
+        <circle r="18" class="wind-dial-bg" />
+        <g id="wind-arrow">
+          <path d="M0 -13 L7 -2 L2.5 -2 L2.5 12 L-2.5 12 L-2.5 -2 L-7 -2 Z" />
+        </g>
+      </svg>
+      <div class="wind-text">
+        <div id="wind-label">Calm</div>
+        <div class="wind-strength">
+          <span class="wind-bars" id="wind-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span id="wind-word">Calm</span>
+        </div>
+      </div>
+    </section>
+
+    <div id="caption" class="pill caption" aria-live="polite"></div>
+
+    <section id="tee-panel" class="panel-bottom">
+      <div class="pill info" id="tee-info">20 m out</div>
+      <div class="hint" id="tee-hint">Drag to move the tee</div>
+      <button id="btn-tee" class="btn primary" type="button">Kick from here</button>
+    </section>
+
+    <section id="aim-panel">
+      <div class="panel-bottom">
+        <div id="meter" class="meter" aria-hidden="true">
+          <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
+          <div class="meter-value" id="meter-value">0%</div>
+        </div>
+        <div class="pill info" id="aim-info">20 m out</div>
+        <div class="hint" id="aim-hint">Drag back from the ball to kick</div>
+      </div>
+      <div id="elevation" class="elevation">
+        <label for="elev-slider" class="elev-label">Height</label>
+        <input id="elev-slider" type="range" min="20" max="55" step="1" value="38" aria-label="Kick height in degrees" />
+        <output id="elev-value" for="elev-slider">38°</output>
+      </div>
+      <svg id="drag-layer" class="drag-layer" aria-hidden="true">
+        <line id="drag-line" x1="0" y1="0" x2="0" y2="0" />
+        <circle id="drag-origin" r="10" />
+        <text id="drag-power" x="0" y="0"></text>
+      </svg>
+    </section>
+
+    <section id="result-card" class="result" role="status" aria-live="assertive">
+      <div class="result-title" id="result-title"></div>
+      <div class="result-points" id="result-points"></div>
+      <div class="result-why" id="result-why"></div>
+      <div class="hint" id="result-hint">Tap to continue</div>
+    </section>
+  </div>
+
+  <div id="game-over" class="overlay" hidden>
+    <div class="overlay-card">
+      <h1>Full time</h1>
+      <p id="final-score" class="final-score"></p>
+      <button id="play-again-btn" class="btn primary" type="button">Play again</button>
     </div>
   </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 

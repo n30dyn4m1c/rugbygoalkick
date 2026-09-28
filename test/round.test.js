@@ -21,7 +21,8 @@ describe('seeded round generator', () => {
       match(seed).forEach((r, i) => {
         const diff = i / 9;
         expect(Math.abs(r.tryX)).toBeLessThanOrEqual(10 + diff * 20 + 1e-9);
-        expect(r.kickX).toBe(r.tryX); // conversion line
+        expect(Math.abs(r.tryX)).toBeLessThan(34); // inside the field
+        expect([1, 2, 3]).toContain(r.previewTier);
         expect(r.windSpeed).toBeGreaterThanOrEqual(diff * 3 - 1e-9);
         expect(r.windSpeed).toBeLessThanOrEqual(2 + diff * 6 + 1e-9);
         expect(Math.hypot(r.wind.x, r.wind.z)).toBeCloseTo(r.windSpeed);
@@ -43,5 +44,14 @@ describe('rng', () => {
   it('hashes strings stably', () => {
     expect(hashSeed('2026-09-28')).toBe(hashSeed('2026-09-28'));
     expect(hashSeed('2026-09-28')).not.toBe(hashSeed('2026-09-29'));
+  });
+});
+
+describe('match progression', () => {
+  it('shortens the preview and speeds up the meter as rounds go on', () => {
+    const r = match(5);
+    expect(r[0].previewTier).toBe(3);
+    expect(r[9].previewTier).toBeLessThan(r[0].previewTier);
+    expect(r[9].meterPeriod).toBeLessThan(r[0].meterPeriod);
   });
 });

@@ -30,10 +30,24 @@ const VIEWPORTS = [
 
 // Each state: a function run in the page against window.__game, then a shot.
 const STATES = [
-  ['title', (g) => g.step(1.0)],
-  ['aiming', (g) => { g.skipIntro(); g.step(1.5); }],
-  ['flight', (g) => { g.kick(g.state.roundInfo.autoAim, 0.75); g.step(1.3); }],
-  ['result', (g) => g.step(3.0)],
+  ['title', (g) => g.step(0.8)],
+  ['tee', (g) => { g.go('tee'); g.step(1.2); }],
+  ['aiming', (g) => { g.go('aim'); g.setAim({ yaw: g.yawToPosts() + 0.02 }); g.step(1.2); }],
+  // Node-side step: a real pointer drag (slingshot), captured mid-pull, then cancelled.
+  ['drag', async (page, vp) => {
+    const x = vp.width / 2;
+    const y = vp.height * 0.62;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - vp.width * 0.06, y + Math.min(vp.height * 0.2, 170), { steps: 6 });
+    await page.evaluate(() => window.__game.step(0.2));
+  }, async (page, vp) => {
+    await page.mouse.move(vp.width / 2, vp.height * 0.62, { steps: 3 });
+    await page.mouse.up();
+    await page.evaluate(() => window.__game.step(0.2));
+  }],
+  ['flight', (g) => { g.kick(0.72); g.step(1.0); }],
+  ['result', (g) => g.step(2.2)],
 ];
 
 await mkdir(outDir, { recursive: true });
@@ -67,8 +81,9 @@ try {
       window.__game.seed(s);
     }, seed);
 
-    for (const [name, run] of STATES) {
-      await page.evaluate(`(${run.toString()})(window.__game)`);
+    for (const [name, run, after] of STATES) {
+      if (run.constructor.name === 'AsyncFunction') await run(page, vp);
+      else await page.evaluate(`(${run.toString()})(window.__game)`);
       // Let the browser present the frame rendered by step().
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       const file = `${outDir}/${vp.name}-${name}.png`;
@@ -78,6 +93,7 @@ try {
         calls: window.__game.renderer.info.render.calls,
       }));
       console.log(`${file}  state=${info.state}  drawCalls=${info.calls}`);
+      if (after) await after(page, vp);
     }
     await context.close();
   }
