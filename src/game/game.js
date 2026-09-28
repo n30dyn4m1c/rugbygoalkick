@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Game — round flow and the per-step state machine
 //
-//   establish → tee → aim → flight → result → (next round | over)
+//   idle (title backdrop) → establish → tee → aim → flight → (next round | over)
 //
 // All timing runs on the game clock / fixed physics step, so pausing the loop
 // pauses everything.
@@ -43,18 +43,24 @@ const BALL_SPIN = -2.2 * Math.PI * 2; // end over end, rad/s
  * @param {object} deps.input    unified input (input/input.js)
  * @param {object} deps.settings settings store
  * @param {() => number} deps.rng
+ * @param {(phase: string) => void} [deps.onPhase]   phase changes (tutorial, audio…)
+ * @param {(summary: object) => void} [deps.onMatchEnd]
  */
-export function createGame({ world, rig, camera, input, settings, rng }) {
+export function createGame({ world, rig, camera, input, settings, rng, onPhase = () => {}, onMatchEnd = () => {} }) {
   const { ball, tee, tryMarker, preview, teeGuide, flags } = world;
 
   const g = {
-    state: 'establish',
+    state: 'idle',
+    active: false, // false while a menu is open: game ignores input
+    mode: 'match', // match | tutorial
     stateTime: 0,
     time: 0,
     round: 1,
     totalRounds: TOTAL_ROUNDS,
     points: 0,
     goals: 0,
+    streak: 0,
+    bestStreak: 0,
     log: [],
     roundInfo: null,
     teeDist: 20,
@@ -121,7 +127,15 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
 
   function enter(state) {
     hud.setPhase(state);
+    onPhase(state);
     switch (state) {
+      case 'idle':
+        ball.visible = false;
+        tee.visible = false;
+        tryMarker.visible = false;
+        preview.visible = false;
+        break;
+
       case 'establish': {
         const { tryX } = g.roundInfo;
         g.suggestedDist = suggestedTeeDistance(tryX);
@@ -134,9 +148,9 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
         tryMarker.visible = true;
         preview.visible = false;
         const where = Math.abs(tryX) < 2 ? 'Try under the posts' : `Try, ${Math.abs(tryX).toFixed(0)} m ${tryX < 0 ? 'left' : 'right'} of the posts`;
-        hud.setCaption(where);
+        hud.setCaption(where, input.lastDevice === 'keyboard' ? 'Press any key to skip' : input.lastDevice === 'gamepad' ? 'Press A to skip' : 'Tap to skip');
         rig.cut({ x: tryX * 0.3, y: 20, z: GOALPOST_Z + 52 }, { x: tryX, y: 0, z: GOALPOST_Z });
-        rig.teeShot(tryX, GOALPOST_Z + g.teeDist, g.firstRound ? 1.1 : 2);
+        rig.teeShot(tryX, GOALPOST_Z + g.teeDist, longIntro() ? 1.1 : 2);
         windDesc(yawToPosts(tryX, GOALPOST_Z + g.teeDist));
         break;
       }
@@ -224,6 +238,10 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
     if (scored) {
       g.points += POINTS_PER_GOAL;
       g.goals++;
+      g.streak++;
+      g.bestStreak = Math.max(g.bestStreak, g.streak);
+    } else {
+      g.streak = 0;
     }
     g.log.push({ round: g.round, outcome, teeDist: g.teeDist, tryX: g.roundInfo.tryX, crossing: f.result.crossing });
     hud.setScore(g.round, g.totalRounds, g.points);
@@ -232,19 +250,32 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
       tone: copy.tone,
       points: scored ? POINTS_PER_GOAL : 0,
       why: explain(f.kick, g.roundInfo.wind, f.result),
-      hint: input.lastDevice === 'keyboard' ? 'Press any key to continue' : input.lastDevice === 'gamepad' ? 'Press A to continue' : 'Tap to continue',
+      next: g.round >= g.totalRounds ? (g.mode === 'tutorial' ? 'Done' : 'See the summary') : 'Next kick',
     });
     hud.setPhase('result');
+    onPhase('result');
     f.revealed = true;
     f.doneAt = f.t;
   }
 
+  function longIntro() {
+    return g.firstRound || settings.get().introEveryRound;
+  }
+
   function nextRound() {
+    if (g.state === 'over') return;
+    onPhase('next');
     if (g.round >= g.totalRounds) {
-      g.state = 'over';
-      hud.setPhase('over');
-      const pct = Math.round((g.goals / g.totalRounds) * 100);
-      hud.showGameOver(`${g.points} points · ${g.goals}/${g.totalRounds} goals · ${pct}%`);
+      go('over');
+      g.flight = null;
+      onMatchEnd({
+        mode: g.mode,
+        points: g.points,
+        goals: g.goals,
+        total: g.totalRounds,
+        bestStreak: g.bestStreak,
+        log: g.log,
+      });
       return;
     }
     g.round++;
@@ -253,21 +284,34 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
   }
 
   function setupRound() {
-    g.roundInfo = generateRound(g.round, g.totalRounds, rng);
+    g.roundInfo = g.mode === 'tutorial'
+      // Calm, slightly off-centre, full preview and a slow meter
+      ? { difficulty: 0, tryX: -9, wind: { x: 0, z: 0 }, windSpeed: 0, previewTier: 3, meterPeriod: 2 }
+      : generateRound(g.round, g.totalRounds, rng);
     g.flight = null;
     hud.setScore(g.round, g.totalRounds, g.points);
-    g.state = null;
     go('establish');
   }
 
-  function restart() {
-    hud.hideGameOver();
+  function start(mode = 'match') {
+    g.mode = mode;
+    g.totalRounds = mode === 'tutorial' ? 1 : TOTAL_ROUNDS;
     g.round = 1;
     g.points = 0;
     g.goals = 0;
+    g.streak = 0;
+    g.bestStreak = 0;
     g.log = [];
-    g.firstRound = true;
+    g.active = true;
     setupRound();
+  }
+
+  /** Title backdrop: slow orbit around the posts, nothing interactive. */
+  function idle() {
+    g.active = false;
+    g.flight = null;
+    if (!g.roundInfo) g.roundInfo = { tryX: 0, wind: { x: 1.5, z: -1 }, previewTier: 0, meterPeriod: 1.6 };
+    go('idle');
   }
 
   // --- aiming ----------------------------------------------------------------
@@ -368,17 +412,19 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
   }
 
   input.on('any', () => {
+    if (!g.active) return;
     if (g.state === 'establish' && g.stateTime > INPUT_GRACE) go('tee');
     else if (g.flight?.revealed && g.flight.t - g.flight.doneAt > 0.35) nextRound();
   });
 
   input.on('press', ({ action }) => {
-    if (g.stateTime < INPUT_GRACE) return;
+    if (!g.active || g.stateTime < INPUT_GRACE) return;
     if (g.state === 'tee' && (action === 'kick' || action === 'confirm')) {
       go('aim');
     } else if (g.state === 'aim' && action === 'kick' && !g.drag) {
       if (!g.meter.running) {
         g.meter = { running: true, t: 0 };
+        onPhase('meter');
         hud.setAimInfo(`${g.teeDist.toFixed(0)} m out · target ${angleDeg().toFixed(1)}°`, hint('meter'));
       } else {
         kick(meterPower(g.meter.t, meterPeriod()));
@@ -387,6 +433,7 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
   });
 
   input.on('pointer', (e) => {
+    if (!g.active) return;
     if (g.state === 'tee') {
       if (e.phase === 'down' && g.stateTime > INPUT_GRACE) g.teeDrag = { id: e.id };
       if (g.teeDrag?.id !== e.id) return;
@@ -426,6 +473,7 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
   });
 
   input.on('wheel', ({ delta }) => {
+    if (!g.active) return;
     if (g.state === 'aim') setElevation(g.elevationDeg - delta);
     if (g.state === 'tee') {
       g.teeDist = clampTeeDistance(g.teeDist + delta);
@@ -443,7 +491,11 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
   });
 
   hud.onTeeConfirm(() => {
-    if (g.state === 'tee') go('aim');
+    if (g.active && g.state === 'tee') go('aim');
+  });
+
+  hud.onNext(() => {
+    if (g.active && g.flight?.revealed) nextRound();
   });
 
   // --- main update ---------------------------------------------------------------
@@ -455,8 +507,18 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
     flags.update(g.time, g.roundInfo.wind);
 
     switch (g.state) {
+      case 'idle': {
+        const a = g.time * 0.06;
+        rig.moveTo(
+          { x: Math.sin(a) * 34, y: 11 + Math.sin(a * 0.7) * 2, z: GOALPOST_Z + 30 + Math.cos(a) * 14 },
+          { x: 0, y: 5, z: GOALPOST_Z },
+          0.8,
+        );
+        break;
+      }
+
       case 'establish':
-        if (g.stateTime >= (g.firstRound ? ESTABLISH_FIRST : ESTABLISH)) go('tee');
+        if (g.stateTime >= (longIntro() ? ESTABLISH_FIRST : ESTABLISH)) go('tee');
         break;
 
       case 'tee': {
@@ -485,13 +547,21 @@ export function createGame({ world, rig, camera, input, settings, rng }) {
 
   return {
     state: g,
-    setupRound,
-    restart,
+    start,
+    idle,
     update,
+    setActive(on) {
+      g.active = on;
+      if (!on) {
+        g.drag = null;
+        hud.setDrag(null);
+      }
+    },
     // Debug helpers (used by window.__game)
     debug: {
       go,
       kick,
+      next: nextRound,
       setAim({ yaw, elevationDeg, teeDist } = {}) {
         if (teeDist !== undefined) g.teeDist = clampTeeDistance(teeDist);
         if (yaw !== undefined) g.yaw = clampYaw(yaw);

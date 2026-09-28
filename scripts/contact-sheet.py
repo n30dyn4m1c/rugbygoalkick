@@ -3,7 +3,7 @@ import sys, os
 from PIL import Image
 src = sys.argv[1] if len(sys.argv) > 1 else 'screenshots'
 out = sys.argv[2] if len(sys.argv) > 2 else src
-order = ['title', 'tee', 'aiming', 'drag', 'flight', 'result']
+order = ['title', 'tutorial', 'establish', 'tee', 'aiming', 'drag', 'flight', 'result', 'pause', 'settings', 'summary']
 for size, scale in [('phone-portrait', 0.5), ('phone-landscape', 0.5), ('desktop', 0.5)]:
     ims = []
     for n in order:
@@ -14,7 +14,7 @@ for size, scale in [('phone-portrait', 0.5), ('phone-landscape', 0.5), ('desktop
     if not ims:
         continue
     w, h = ims[0].size
-    cols = 6 if size == 'phone-portrait' else 3
+    cols = 6 if size == 'phone-portrait' else 4
     rows = (len(ims) + cols - 1) // cols
     sheet = Image.new('RGB', (cols * w + (cols - 1) * 8, rows * h + (rows - 1) * 8), 'white')
     for i, im in enumerate(ims):

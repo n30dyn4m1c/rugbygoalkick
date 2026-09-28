@@ -39,8 +39,9 @@ export function setWindArrow(arrowDeg) {
   $('wind-arrow').style.transform = `rotate(${arrowDeg}deg)`;
 }
 
-export function setCaption(text) {
-  $('caption').textContent = text ?? '';
+export function setCaption(text, hint = '') {
+  $('caption-text').textContent = text ?? '';
+  $('caption-hint').textContent = hint;
 }
 
 export function setTeeInfo(text, hint) {
@@ -60,7 +61,15 @@ export function setElevation(deg) {
 }
 
 export function onElevationInput(fn) {
-  $('elev-slider').addEventListener('input', (e) => fn(Number(e.target.value)));
+  const slider = $('elev-slider');
+  slider.addEventListener('input', (e) => fn(Number(e.target.value)));
+  // After a touch/mouse drag, hand keys back to the game (arrows aim again)
+  slider.addEventListener('pointerup', () => slider.blur());
+}
+
+// Pointer-activated HUD buttons shouldn't keep keyboard focus either
+for (const id of ['btn-tee', 'btn-next', 'btn-pause']) {
+  $(id).addEventListener('pointerup', (e) => e.currentTarget.blur());
 }
 
 export function onTeeConfirm(fn) {
@@ -92,25 +101,19 @@ export function setDrag(drag) {
   label.textContent = drag.cancel ? 'Release to cancel' : `${Math.round(drag.power * 100)}%`;
 }
 
-export function showResult({ title, tone, points, why, hint }) {
+export function showResult({ title, tone, points, why, next }) {
   const card = $('result-card');
   card.dataset.tone = tone;
   $('result-title').textContent = title;
   $('result-points').textContent = points ? `+${points}` : '';
   $('result-why').textContent = why;
-  $('result-hint').textContent = hint;
+  $('btn-next').textContent = next;
 }
 
-export function showGameOver(text) {
-  $('final-score').textContent = text;
-  $('game-over').hidden = false;
-  $('play-again-btn').focus();
+export function onNext(fn) {
+  $('btn-next').addEventListener('click', fn);
 }
 
-export function hideGameOver() {
-  $('game-over').hidden = true;
-}
-
-export function onPlayAgain(handler) {
-  $('play-again-btn').addEventListener('click', handler);
+export function onPause(fn) {
+  $('btn-pause').addEventListener('click', fn);
 }

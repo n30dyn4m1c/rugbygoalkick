@@ -33,15 +33,28 @@ try {
     await page.goto(url);
     await page.waitForFunction(() => window.__game);
     await page.evaluate(() => window.__game.seed(11));
-    await page.waitForTimeout(400);
-
-    await page.touchscreen.tap(195, 420);
-    check('touch: tap skips the establishing shot', await waitState(page, 'tee', 1500));
-
-    const before = (await st(page)).teeDist;
     const cdp = await ctx.newCDPSession(page);
     const touch = async (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
-    await page.waitForTimeout(200);
+    const tapEl = async (name) => {
+      const b = await page.getByRole('button', { name }).boundingBox();
+      await touch('touchStart', b.x + b.width / 2, b.y + b.height / 2);
+      await touch('touchEnd');
+    };
+    await page.waitForTimeout(400);
+
+    // Two taps from page load to the first kick: Play match, Kick from here.
+    await tapEl('Play match');
+    check('touch: tap 1 (Play match) starts the match', await waitState(page, 'establish', 1500));
+    check('touch: first-launch tutorial coach mark is shown', await page.evaluate(() => !document.getElementById('coach').hidden));
+    check('touch: establishing shot hands over to the tee by itself', await waitState(page, 'tee', 4000));
+    await page.waitForTimeout(400);
+    await tapEl('Kick from here');
+    check('touch: tap 2 (Kick from here) → ready to kick', await waitState(page, 'aim', 1500));
+
+    // Back to the tee step for the drag checks (debug jump, not a player tap)
+    await page.evaluate(() => window.__game.go('tee'));
+    await page.waitForTimeout(400);
+    const before = (await st(page)).teeDist;
     await touch('touchStart', 200, 560);
     for (let i = 1; i <= 8; i++) await touch('touchMove', 200, 560 + i * 25);
     await touch('touchEnd');
@@ -71,6 +84,17 @@ try {
     await touch('touchEnd');
     await page.waitForTimeout(600);
     check('touch: tap advances to the next kick', (await st(page)).round === 2);
+
+    await page.waitForTimeout(400);
+    await tapEl('Pause');
+    await page.waitForTimeout(200);
+    const paused = await page.evaluate(() => ({ mode: window.__game.app.mode, t: window.__game.state.time }));
+    await page.waitForTimeout(500);
+    const still = await page.evaluate(() => window.__game.state.time);
+    check('touch: pause button pauses the game clock', paused.mode === 'paused' && still === paused.t);
+    await tapEl('Resume');
+    await page.waitForTimeout(300);
+    check('touch: resume continues', (await page.evaluate(() => window.__game.state.time)) > still);
     check('touch: no page errors', errors.length === 0, errors.join('; '));
     await ctx.close();
   }
@@ -83,7 +107,14 @@ try {
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(url);
     await page.waitForFunction(() => window.__game);
-    await page.evaluate(() => window.__game.seed(11));
+    await page.evaluate(() => {
+      window.__game.seed(11);
+      window.__game.settings.set({ tutorialDone: true });
+    });
+    await page.waitForTimeout(300);
+    check('keys: Play match has focus on the title', await page.evaluate(() => document.activeElement?.id === 'btn-play'));
+    await page.keyboard.press('Enter');
+    check('keys: Enter starts the match', await waitState(page, 'establish', 1500));
     await page.waitForTimeout(300);
     await page.keyboard.press('KeyX');
     check('keys: any key skips the establishing shot', await waitState(page, 'tee', 1500));
@@ -120,7 +151,21 @@ try {
     const power = await page.evaluate(() => window.__game.state.lastPower);
     check('keys: meter power is not pinned at 100%', power > 0.05 && power < 0.99, `power ${power.toFixed(2)}`);
 
-    await page.evaluate(() => window.blur());
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    check('keys: Esc pauses', await page.evaluate(() => window.__game.app.mode === 'paused'));
+    check('keys: Resume has focus', await page.evaluate(() => document.activeElement?.id === 'btn-resume'));
+    await page.keyboard.press('ArrowDown');
+    check('keys: arrows move focus in menus', await page.evaluate(() => document.activeElement?.id === 'btn-restart'));
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    check('keys: Esc resumes', await page.evaluate(() => window.__game.app.mode === 'playing'));
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    check('keys: hiding the tab auto-pauses', await page.evaluate(() => window.__game.app.mode === 'paused'));
     check('keys: no page errors', errors.length === 0, errors.join('; '));
     await ctx.close();
   }

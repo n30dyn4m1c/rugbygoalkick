@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#111111" />
+  <meta name="description" content="Rugby league goal kicking: convert tries against the wind." />
   <title>Rugby Goal Kick</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
@@ -12,13 +13,19 @@
 <body>
   <div id="stage"></div>
 
-  <div id="hud" data-phase="establish" data-device="touch">
+  <!-- ===================================================================
+       In-game HUD (panels shown by data-phase)
+       =================================================================== -->
+  <div id="hud" data-phase="idle" data-device="touch">
     <header class="hud-top">
       <div class="pill score" aria-live="polite">
         <span id="hud-kick">Kick 1/10</span>
         <span class="sep" aria-hidden="true">·</span>
         <span id="hud-points">0 pts</span>
       </div>
+      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+      </button>
     </header>
 
     <section id="wind" class="pill wind" role="status" aria-label="Wind">
@@ -37,7 +44,10 @@
       </div>
     </section>
 
-    <div id="caption" class="pill caption" aria-live="polite"></div>
+    <div id="caption" class="caption" aria-live="polite">
+      <div id="caption-text" class="caption-text"></div>
+      <div class="hint" id="caption-hint">Tap to skip</div>
+    </div>
 
     <section id="tee-panel" class="panel-bottom">
       <div class="pill info" id="tee-info">20 m out</div>
@@ -70,17 +80,116 @@
       <div class="result-title" id="result-title"></div>
       <div class="result-points" id="result-points"></div>
       <div class="result-why" id="result-why"></div>
-      <div class="hint" id="result-hint">Tap to continue</div>
+      <button id="btn-next" class="btn" type="button">Next kick</button>
     </section>
-  </div>
 
-  <div id="game-over" class="overlay" hidden>
-    <div class="overlay-card">
-      <h1>Full time</h1>
-      <p id="final-score" class="final-score"></p>
-      <button id="play-again-btn" class="btn primary" type="button">Play again</button>
+    <div id="coach" class="coach" role="note" aria-live="polite" hidden>
+      <p id="coach-text"></p>
+      <button id="btn-coach-skip" class="link-btn" type="button">Skip tutorial</button>
     </div>
   </div>
+
+  <!-- ===================================================================
+       Screens
+       =================================================================== -->
+  <section id="screen-title" class="screen title-screen" aria-labelledby="title-heading" hidden>
+    <div class="title-card">
+      <p class="kicker">Rugby league</p>
+      <h1 id="title-heading" class="logo">Goal Kick</h1>
+      <p class="fixture">Highlands Hornbills <span>v</span> Coastal Crocs</p>
+      <button id="btn-play" class="btn primary big" type="button">Play match</button>
+      <p class="best" id="title-best"></p>
+      <div class="row">
+        <button id="btn-howto" class="btn" type="button">How to play</button>
+        <button id="btn-settings" class="btn" type="button">Settings</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-pause" class="screen" role="dialog" aria-modal="true" aria-labelledby="pause-heading" hidden>
+    <div class="menu-card">
+      <h2 id="pause-heading">Paused</h2>
+      <button id="btn-resume" class="btn primary big" type="button">Resume</button>
+      <button id="btn-restart" class="btn" type="button">Restart match</button>
+      <button id="btn-pause-howto" class="btn" type="button">How to play</button>
+      <button id="btn-pause-settings" class="btn" type="button">Settings</button>
+      <button id="btn-quit" class="btn" type="button">Quit to title</button>
+    </div>
+  </section>
+
+  <section id="screen-settings" class="screen" role="dialog" aria-modal="true" aria-labelledby="settings-heading" hidden>
+    <div class="menu-card settings-card">
+      <header class="settings-head">
+        <h2 id="settings-heading">Settings</h2>
+        <button id="btn-settings-done" class="btn primary" type="button">Done</button>
+      </header>
+      <div class="settings-body">
+        <fieldset>
+          <legend>Controls</legend>
+          <label class="setting range">
+            <span>Aim sensitivity</span>
+            <input type="range" id="set-aimSensitivity" min="0.5" max="2" step="0.1" />
+            <output id="out-aimSensitivity"></output>
+          </label>
+          <label class="setting toggle">
+            <span>Invert drag aim <small>Pull left aims left</small></span>
+            <input type="checkbox" role="switch" id="set-invertDragAim" />
+          </label>
+          <label class="setting toggle">
+            <span>Height slider on the left <small>For left-handed play</small></span>
+            <input type="checkbox" role="switch" id="set-leftHanded" />
+          </label>
+          <label class="setting toggle">
+            <span>Always kick from the suggested spot <small>Skips tee placement</small></span>
+            <input type="checkbox" role="switch" id="set-alwaysSuggestedTee" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Assists</legend>
+          <label class="setting toggle">
+            <span>Slower timing meter</span>
+            <input type="checkbox" role="switch" id="set-meterAssist" />
+          </label>
+          <label class="setting toggle">
+            <span>Longer aim preview</span>
+            <input type="checkbox" role="switch" id="set-previewAssist" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Game</legend>
+          <label class="setting toggle">
+            <span>Fly-over before every kick <small>Otherwise only the first kick</small></span>
+            <input type="checkbox" role="switch" id="set-introEveryRound" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Keyboard</legend>
+          <div id="keymap" class="keymap"></div>
+          <button id="btn-reset-keys" class="btn small" type="button">Reset keys</button>
+        </fieldset>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-summary" class="screen" role="dialog" aria-modal="true" aria-labelledby="summary-heading" hidden>
+    <div class="menu-card summary-card">
+      <h2 id="summary-heading">Full time</h2>
+      <p class="summary-points"><span id="sum-points">0</span> pts</p>
+      <p class="summary-line" id="sum-line"></p>
+      <p class="summary-best" id="sum-best"></p>
+      <table class="kick-table">
+        <caption class="visually-hidden">Kick by kick</caption>
+        <thead>
+          <tr><th scope="col">#</th><th scope="col">Tee</th><th scope="col">Result</th><th scope="col">Pts</th></tr>
+        </thead>
+        <tbody id="sum-rows"></tbody>
+      </table>
+      <div class="row">
+        <button id="btn-again" class="btn primary" type="button">Play again</button>
+        <button id="btn-summary-title" class="btn" type="button">Title</button>
+      </div>
+    </div>
+  </section>
 
   <script type="module" src="/src/main.js"></script>
 </body>

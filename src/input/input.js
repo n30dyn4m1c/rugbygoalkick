@@ -5,7 +5,7 @@
 //   aim   −1…1  (left/right)       elev  −1…1 (raise/lower; also tee closer/back)
 //   fine  bool
 // Discrete intents are emitted as events:
-//   'press'   {action}  kick | confirm | pause | back
+//   'press'   {action}  kick | confirm | pause | back | navUp | navDown | navLeft | navRight
 //   'any'     any key, click, tap or button (used to skip cut-scenes)
 //   'pointer' {phase: down|move|up|cancel, x, y, id, pointerType}
 //   'wheel'   {delta}
@@ -33,9 +33,15 @@ export function createInput({ surface, getBindings }) {
 
   // --- Keyboard ------------------------------------------------------------
   window.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLElement && e.target.closest('input, select, textarea, [data-capture-keys]')) return;
+    if (e.target instanceof HTMLElement && e.target.closest('[data-capture-keys]')) return;
     const actions = byCode.get(e.code);
     setDevice('keyboard');
+    // A focused button / slider keeps its native keys (Space, Enter, arrows);
+    // only Pause still reaches the game.
+    if (e.target instanceof HTMLElement && e.target.matches('button, input, select, textarea')) {
+      if (actions?.includes('pause') && !e.repeat) events.emit('press', { action: 'pause', source: 'keyboard' });
+      return;
+    }
     if (!actions) {
       if (!e.repeat) events.emit('any', { source: 'keyboard' });
       return;
@@ -97,8 +103,9 @@ export function createInput({ surface, getBindings }) {
     pad = { aim: Math.max(-1, Math.min(1, aim)), elev: Math.max(-1, Math.min(1, elev)), fine: btn(4) || btn(5) };
     if (aim || elev) setDevice('gamepad');
 
-    // Edge-triggered buttons: A / RT = kick, A = confirm, B = back, Start = pause
-    const edges = { 0: ['kick', 'confirm'], 7: ['kick'], 1: ['back'], 9: ['pause'] };
+    // Edge-triggered buttons: A / RT = kick, A = confirm, B = back, Start = pause,
+    // d-pad = menu navigation
+    const edges = { 0: ['kick', 'confirm'], 7: ['kick'], 1: ['back'], 9: ['pause'], 12: ['navUp'], 13: ['navDown'], 14: ['navLeft'], 15: ['navRight'] };
     gp.buttons.forEach((b, i) => {
       const down = b.pressed;
       if (down && !padPrev[i]) {

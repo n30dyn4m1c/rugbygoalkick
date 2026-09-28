@@ -35,8 +35,9 @@ src/
   world/           three.js builders: renderer, lighting, field, posts, stadium, flags, props,
                    aimPreview (dotted arc + posts marker), teeGuide, cameraRig
   input/           input.js (keyboard + pointer + gamepad → axes and events), bindings.js (remappable keys)
-  settings/        storage.js (versioned localStorage, memory fallback), settings.js
-  ui/              hud.js (DOM HUD; CSS shows panels by data-phase)
+  settings/        storage.js (versioned localStorage, memory fallback), settings.js, scores.js (bests)
+  ui/              hud.js (DOM HUD; CSS shows panels by data-phase), screens.js (title/pause/settings/
+                   summary, focus + key remapping), tutorial.js (interactive coach marks)
   debug/           hook.js — window.__game, dev builds only
 test/              Vitest suites
 scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet.py (dev helper)
@@ -50,9 +51,13 @@ scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet
 - Aim is a **yaw**: 0 = straight downfield (−Z), positive = kicker's right (+X), clamped to ±85°.
 - Coordinates: goal line at `z = GOALPOST_Z` (−50), kicker faces −Z, +X is right. Wind is an air velocity `{x, z}` (where it pushes the ball).
 
+### App flow (`main.js`)
+
+Title (mode buttons on the title itself) → match or tutorial ⇄ pause / settings → summary → title. Page load to first kick is two taps (Play match, Kick from here). Menus set `body.menu-open`, call `game.setActive(false)` and pause the loop; Esc / P / gamepad B / the ⏸ button step back; hiding the tab auto-pauses.
+
 ### Game flow (`game/game.js`)
 
-`establish` (skippable fly-in) → `tee` (choose distance on the conversion line) → `aim` (yaw, elevation, power via slingshot drag or timing meter) → `flight` (playback; result revealed at the goal plane / post hit / landing) → next round or `over`.
+`idle` (title backdrop orbit) → `establish` (skippable fly-in) → `tee` (choose distance on the conversion line) → `aim` (yaw, elevation, power via slingshot drag or timing meter) → `flight` (playback; result revealed at the goal plane / post hit / landing) → next round or `over`.
 
 ### Physics
 
@@ -60,10 +65,11 @@ scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet
 
 ### Debug hook
 
-In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `go(state)`, `setAim({yaw, elevationDeg, teeDist})`, `kick(power)`, `yawToPosts()`, `state`, `renderer`, `settings`.
+In dev, `window.__game` exposes `seed(n)`, `freeze()`, `step(seconds)`, `startMatch()`, `startTutorial()`, `showTitle()`, `pause()`, `resume()`, `openSettings()`, `go(state)`, `setAim({yaw, elevationDeg, teeDist})`, `kick(power)`, `autoplay(n)`, `yawToPosts()`, `state`, `app`, `renderer`, `settings`, `scores`.
 
 ## Dependencies
 
 - **three** (0.170): rendering
 - **vite** (6): dev server/bundler
+- **@fontsource/barlow-condensed**: self-hosted display font (Latin 700/800)
 - **vitest**, **playwright** (dev): tests and screenshots

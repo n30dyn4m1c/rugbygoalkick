@@ -17,6 +17,7 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
   --text-sm: 14px;
   --text-md: 16px;
   --text-lg: 20px;
@@ -112,6 +113,10 @@ input,
   background: rgba(255, 255, 255, 0.16);
 }
 
+.btn {
+  white-space: nowrap;
+}
+
 .btn.primary {
   background: var(--gold);
   color: #1a1400;
@@ -130,8 +135,29 @@ input,
 }
 
 .score {
+  font-family: var(--font-display);
+  font-size: calc(var(--text-md) * 1.2);
   font-weight: 700;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--pill-border);
+  background: var(--pill-bg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
 .score .sep {
@@ -220,11 +246,21 @@ input,
   right: calc(var(--safe-r) + var(--gutter));
   margin-inline: auto;
   bottom: calc(var(--safe-b) + 18%);
-  font-size: var(--text-lg);
-  font-weight: 700;
   text-align: center;
   width: fit-content;
   display: none;
+}
+
+.caption-text {
+  font-family: var(--font-display);
+  font-size: calc(var(--text-lg) * 1.3);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  margin-bottom: 6px;
 }
 
 /* Bottom panels */
@@ -376,8 +412,10 @@ input,
 }
 
 .result-title {
-  font-size: clamp(30px, 8vw, 48px);
-  font-weight: 900;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 9vw, 60px);
+  font-weight: 800;
+  line-height: 1;
   letter-spacing: 0.01em;
 }
 
@@ -388,7 +426,8 @@ input,
 .result[data-tone='bad'] .result-title::before { content: '✕ '; }
 
 .result-points {
-  font-size: var(--text-lg);
+  font-family: var(--font-display);
+  font-size: calc(var(--text-lg) * 1.4);
   font-weight: 800;
   color: var(--gold);
 }
@@ -412,6 +451,17 @@ input,
 #hud[data-phase='tee'] #tee-panel { display: flex; }
 #hud[data-phase='aim'] #aim-panel { display: block; }
 #hud[data-phase='result'] .result { display: block; }
+
+/* In flight: nearly nothing on screen */
+#hud[data-phase='flight'] .score { opacity: 0; }
+#hud[data-phase='idle'] .hud-top,
+#hud[data-phase='over'] .hud-top { display: none; }
+
+#btn-next {
+  min-height: 44px;
+  font-size: var(--text-md);
+  padding: 8px 22px;
+}
 
 /* Landscape phones: short screens — wind joins the top row, compact type */
 @media (orientation: landscape) and (max-height: 500px) {
@@ -456,37 +506,463 @@ input,
   }
 }
 
-/* Overlay */
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
-  z-index: 20;
-  padding: 24px;
+/* -------------------------------------------------------------------------
+   Coach marks (interactive tutorial) — never block the game
+   ------------------------------------------------------------------------- */
+.coach {
+  position: absolute;
+  left: calc(var(--safe-l) + var(--gutter));
+  right: calc(var(--safe-r) + var(--gutter));
+  top: calc(var(--safe-t) + 132px);
+  margin-inline: auto;
+  width: fit-content;
+  max-width: min(440px, calc(100% - 2 * var(--gutter)));
+  background: var(--gold);
+  color: #1a1400;
+  border-radius: 16px;
+  padding: 12px 16px 8px;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
-.overlay[hidden] {
+.coach[hidden] {
   display: none;
 }
 
-.overlay-card {
-  text-align: center;
+.coach p {
+  margin-bottom: 4px;
+}
+
+.link-btn {
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  font-size: var(--text-sm);
+  min-height: 44px;
+  padding: 0 4px;
+  cursor: pointer;
+  pointer-events: auto;
+  color: inherit;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .coach {
+    top: calc(var(--safe-t) + 64px);
+    max-width: 46%;
+    left: auto;
+    right: calc(var(--safe-r) + var(--gutter) + 64px);
+    margin: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Screens (title, pause, settings, summary)
+   ------------------------------------------------------------------------- */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--safe-t) + 16px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 16px) calc(var(--safe-l) + 16px);
+  background: rgba(8, 8, 10, 0.72);
+  overflow-y: auto;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.menu-card,
+.title-card {
+  width: min(100%, 420px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 18px;
+  gap: 12px;
+  align-items: stretch;
+  text-align: center;
+  margin: auto;
 }
 
-.overlay-card h1 {
-  font-size: clamp(36px, 9vw, 64px);
-  font-weight: 900;
+.menu-card h2 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 9vw, 56px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
 }
 
-.final-score {
-  font-size: clamp(20px, 5vw, 28px);
+.btn.big {
+  min-height: 60px;
+  font-size: calc(var(--text-lg) * 1.2);
+}
+
+.btn.small {
+  min-height: 44px;
+  font-size: var(--text-md);
+  padding: 8px 18px;
+  align-self: flex-start;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+.row .btn {
+  flex: 1;
+  padding-inline: 12px;
+}
+
+/* Menus own the screen: hide the in-game HUD underneath */
+body.menu-open #hud {
+  visibility: hidden;
+}
+
+/* Title: the stadium stays visible behind a bottom-weighted card */
+.title-screen {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.1) 35%, rgba(8, 8, 10, 0.85) 100%);
+  align-items: flex-end;
+}
+
+.kicker {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
   font-weight: 700;
   color: var(--gold);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: clamp(64px, 20vw, 120px);
+  font-weight: 800;
+  line-height: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-shadow: 0 4px 0 var(--red), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.fixture {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.fixture span {
+  color: var(--gold);
+  margin: 0 6px;
+}
+
+.best {
+  color: var(--ink-dim);
+  min-height: 1.2em;
+}
+
+/* Settings */
+.settings-card {
+  width: min(100%, 560px);
+  text-align: left;
+  background: rgba(18, 18, 22, 0.94);
+  border: 1px solid var(--pill-border);
+  border-radius: 20px;
+  padding: 16px;
+  max-height: calc(100dvh - 32px - var(--safe-t) - var(--safe-b));
+}
+
+.settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-head h2 {
+  margin: 0;
+}
+
+.settings-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+}
+
+fieldset {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+legend {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setting small {
+  display: block;
+  color: var(--ink-dim);
+  font-size: var(--text-sm);
+}
+
+.setting input[type='checkbox'] {
+  appearance: none;
+  flex: none;
+  width: 52px;
+  height: 30px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.2);
+  position: relative;
+  cursor: pointer;
+}
+
+.setting input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.setting input[type='checkbox']:checked {
+  background: var(--gold);
+}
+
+.setting input[type='checkbox']:checked::after {
+  transform: translateX(22px);
+}
+
+/* On/off also shown as text, not colour alone */
+.setting input[type='checkbox']::before {
+  content: 'Off';
+  position: absolute;
+  right: 60px;
+  top: 5px;
+  font-size: var(--text-sm);
+  color: var(--ink-dim);
+}
+
+.setting input[type='checkbox']:checked::before {
+  content: 'On';
+}
+
+.setting.range input {
+  flex: 1;
+  max-width: 180px;
+  accent-color: var(--gold);
+  min-height: 44px;
+}
+
+.setting output {
+  width: 3em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.keymap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.key-btn {
+  min-width: 96px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--pill-border);
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.key-btn[data-capturing] {
+  background: var(--gold);
+  color: #1a1400;
+}
+
+/* Summary */
+.summary-card {
+  width: min(100%, 460px);
+}
+
+.summary-points {
+  font-family: var(--font-display);
+  font-size: clamp(56px, 16vw, 88px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gold);
+}
+
+.summary-points span {
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-line {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.summary-best {
+  color: var(--ink-dim);
+}
+
+.summary-best.new {
+  color: var(--good);
+  font-weight: 800;
+}
+
+.summary-best.new::before {
+  content: '★ ';
+}
+
+.kick-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  margin: 4px 0 8px;
+}
+
+.kick-table th,
+.kick-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kick-table th {
+  color: var(--ink-dim);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.kick-table td:last-child,
+.kick-table th:last-child {
+  text-align: right;
+}
+
+.kick-table .good {
+  color: var(--good);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Short landscape phones: two-column title and compact summary */
+@media (orientation: landscape) and (max-height: 500px) {
+  .title-screen {
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .title-card {
+    margin: 0;
+    width: min(46%, 380px);
+    gap: 8px;
+  }
+
+  .logo {
+    font-size: 72px;
+  }
+
+  .menu-card {
+    gap: 8px;
+  }
+
+  .menu-card h2 {
+    font-size: 36px;
+    margin: 0;
+  }
+
+  .menu-card .btn {
+    min-height: 44px;
+    padding-block: 8px;
+    font-size: var(--text-md);
+  }
+
+  #screen-pause .menu-card {
+    width: min(100%, 560px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #screen-pause h2,
+  #btn-resume {
+    grid-column: 1 / -1;
+  }
+
+  .summary-points {
+    font-size: 56px;
+  }
+
+  .summary-card {
+    width: min(100%, 720px);
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    column-gap: 20px;
+    align-items: start;
+  }
+
+  .summary-card > :not(.kick-table) {
+    grid-column: 1;
+  }
+
+  .summary-card .kick-table {
+    grid-column: 2;
+    grid-row: 1 / span 6;
+  }
+}
+
+/* Large screens: scale the whole UI up */
+@media (min-width: 1100px) and (min-height: 700px) {
+  :root {
+    --text-sm: 16px;
+    --text-md: 19px;
+    --text-lg: 24px;
+    --gutter: 20px;
+  }
+
+  .wind {
+    top: calc(var(--safe-t) + var(--gutter));
+  }
+
+  .wind-dial {
+    width: 52px;
+    height: 52px;
+  }
+
+  .title-card {
+    width: 480px;
+  }
 }

@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS = {
   meterAssist: false, // slower timing meter
   previewAssist: false, // one tier longer aim preview
   alwaysSuggestedTee: false,
+  introEveryRound: false,
+  tutorialDone: false,
   bindings: DEFAULT_BINDINGS,
 };
 

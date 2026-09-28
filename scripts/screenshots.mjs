@@ -30,7 +30,10 @@ const VIEWPORTS = [
 
 // Each state: a function run in the page against window.__game, then a shot.
 const STATES = [
-  ['title', (g) => g.step(0.8)],
+  ['title', (g) => g.step(2.0)],
+  // First-kick tutorial coach mark on the aim step
+  ['tutorial', (g) => { g.settings.set({ tutorialDone: false }); g.startTutorial(); g.step(0.3); g.go('aim'); g.step(1.0); }],
+  ['establish', (g) => { g.settings.set({ tutorialDone: true }); g.showTitle(); g.seed(SEED); g.startMatch(); g.step(0.8); }],
   ['tee', (g) => { g.go('tee'); g.step(1.2); }],
   ['aiming', (g) => { g.go('aim'); g.setAim({ yaw: g.yawToPosts() + 0.02 }); g.step(1.2); }],
   // Node-side step: a real pointer drag (slingshot), captured mid-pull, then cancelled.
@@ -48,6 +51,9 @@ const STATES = [
   }],
   ['flight', (g) => { g.kick(0.72); g.step(1.0); }],
   ['result', (g) => g.step(2.2)],
+  ['pause', (g) => { g.pause(); g.step(0.1); }],
+  ['settings', (g) => { g.openSettings(); g.step(0.1); }],
+  ['summary', (g) => { g.resume(); g.autoplay(10); g.step(0.2); }],
 ];
 
 await mkdir(outDir, { recursive: true });
@@ -76,14 +82,11 @@ try {
 
     await page.goto(url);
     await page.waitForFunction(() => window.__game !== undefined);
-    await page.evaluate((s) => {
-      window.__game.freeze();
-      window.__game.seed(s);
-    }, seed);
+    await page.evaluate(() => window.__game.freeze());
 
     for (const [name, run, after] of STATES) {
       if (run.constructor.name === 'AsyncFunction') await run(page, vp);
-      else await page.evaluate(`(${run.toString()})(window.__game)`);
+      else await page.evaluate(`((SEED) => (${run.toString()})(window.__game))(${seed})`);
       // Let the browser present the frame rendered by step().
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       const file = `${outDir}/${vp.name}-${name}.png`;
