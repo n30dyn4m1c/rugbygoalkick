@@ -33,6 +33,7 @@ src/
                    conversion.js (tee geometry, suggested spot, aim yaw), wind.js (kicker-relative wording),
                    explain.js (result copy + "why" line)
   game/            round.js + meter.js (pure), game.js (state machine, input handling, flight playback)
+  modes/           modes.js — PURE mode rules as data: match, daily, practice, pressure, tutorial
   world/           three.js builders: renderer, lighting (preset-driven key/fill/hemi, play-area shadows),
                    field (league markings), posts, stadium, crowd (instanced), scenery (hills, palms,
                    floodlights + haze, roofs, pattern boards), ball (lathe + tee), sky, patterns,
@@ -56,6 +57,10 @@ scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet
 - Gameplay timing uses the game clock / fixed step, never `setTimeout`. The loop stops when the tab is hidden.
 - Aim is a **yaw**: 0 = straight downfield (−Z), positive = kicker's right (+X), clamped to ±85°.
 - Coordinates: goal line at `z = GOALPOST_Z` (−50), kicker faces −Z, +X is right. Wind is an air velocity `{x, z}` (where it pushes the ball).
+
+### Modes (`modes/modes.js`)
+
+Each mode defines `rounds`, `round(k, ctx)`, `ends(state)`, `shotClock(k, round)` and `score(state)`. Match: 10 kicks, rising difficulty, 2 pts a goal. Daily: match rules with a date seed (same kicks for everyone). Practice: player-chosen try spot, wind and preview, unlimited, heat map of recent kicks (`world/heatmap.js`). Pressure: until the first miss, harder every kick, preview fades to nothing, shot clock (game time, so pause stops it). Bests are stored in `settings/scores.js`.
 
 ### App flow (`main.js`)
 

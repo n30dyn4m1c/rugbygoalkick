@@ -18,10 +18,17 @@
        =================================================================== -->
   <div id="hud" data-phase="idle" data-device="touch">
     <header class="hud-top">
-      <div class="pill score" aria-live="polite">
-        <span id="hud-kick">Kick 1/10</span>
-        <span class="sep" aria-hidden="true">·</span>
-        <span id="hud-points">0 pts</span>
+      <div class="top-left">
+        <div class="pill score" aria-live="polite">
+          <span id="hud-kick">Kick 1/10</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span id="hud-points">0 pts</span>
+        </div>
+        <div id="shot-clock" class="pill shot-clock" role="timer" hidden>
+          <span class="shot-clock-label">Clock</span>
+          <span id="shot-clock-value" class="shot-clock-value">25</span>
+          <span class="shot-clock-track"><span id="shot-clock-bar" class="shot-clock-bar"></span></span>
+        </div>
       </div>
       <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
@@ -102,6 +109,11 @@
       <p class="fixture">Highlands Hornbills <span>v</span> Coastal Crocs</p>
       <button id="btn-play" class="btn primary big" type="button">Play match</button>
       <p class="best" id="title-best"></p>
+      <div class="row modes" role="group" aria-label="Other modes">
+        <button id="btn-practice" class="btn mode" type="button">Practice<small>Your spot, your wind</small></button>
+        <button id="btn-pressure" class="btn mode" type="button">Pressure<small>Until you miss</small></button>
+        <button id="btn-daily" class="btn mode" type="button">Daily<small id="daily-sub">Same kicks for all</small></button>
+      </div>
       <div class="row">
         <button id="btn-howto" class="btn" type="button">How to play</button>
         <button id="btn-settings" class="btn" type="button">Settings</button>
@@ -113,7 +125,8 @@
     <div class="menu-card">
       <h2 id="pause-heading">Paused</h2>
       <button id="btn-resume" class="btn primary big" type="button">Resume</button>
-      <button id="btn-restart" class="btn" type="button">Restart match</button>
+      <button id="btn-practice-options" class="btn" type="button" hidden>Practice options</button>
+      <button id="btn-restart" class="btn" type="button">Restart</button>
       <button id="btn-pause-howto" class="btn" type="button">How to play</button>
       <button id="btn-pause-settings" class="btn" type="button">Settings</button>
       <button id="btn-quit" class="btn" type="button">Quit to title</button>
@@ -219,6 +232,50 @@
           <div id="keymap" class="keymap"></div>
           <button id="btn-reset-keys" class="btn small" type="button">Reset keys</button>
         </fieldset>
+      </div>
+    </div>
+  </section>
+
+ <section id="screen-practice" class="screen" role="dialog" aria-modal="true" aria-labelledby="practice-heading" hidden>
+    <div class="menu-card settings-card practice-card">
+      <header class="settings-head">
+        <h2 id="practice-heading">Practice</h2>
+        <button id="btn-practice-start" class="btn primary" type="button">Start</button>
+      </header>
+      <div class="settings-body">
+        <label class="setting range">
+          <span>Try scored</span>
+          <input type="range" id="pr-tryX" min="-32" max="32" step="1" />
+          <output id="pr-tryX-out"></output>
+        </label>
+        <fieldset class="segmented" id="pr-windSpeed">
+          <legend>Wind strength</legend>
+          <label><input type="radio" name="pr-speed" value="0" />None</label>
+          <label><input type="radio" name="pr-speed" value="2" />Light</label>
+          <label><input type="radio" name="pr-speed" value="4" />Moderate</label>
+          <label><input type="radio" name="pr-speed" value="7" />Strong</label>
+        </fieldset>
+        <fieldset class="dir-grid" id="pr-windDir">
+          <legend>Wind pushes the ball…</legend>
+          <label title="Tail-crosswind, right to left"><input type="radio" name="pr-dir" value="tailRtl" aria-label="Tail-crosswind, right to left" /><span aria-hidden="true">↖</span></label>
+          <label title="Tailwind"><input type="radio" name="pr-dir" value="tail" aria-label="Tailwind, toward the posts" /><span aria-hidden="true">↑</span></label>
+          <label title="Tail-crosswind, left to right"><input type="radio" name="pr-dir" value="tailLtr" aria-label="Tail-crosswind, left to right" /><span aria-hidden="true">↗</span></label>
+          <label title="Crosswind, right to left"><input type="radio" name="pr-dir" value="rtl" aria-label="Crosswind, right to left" /><span aria-hidden="true">←</span></label>
+          <label title="Random"><input type="radio" name="pr-dir" value="random" aria-label="Random direction" /><span aria-hidden="true">?</span></label>
+          <label title="Crosswind, left to right"><input type="radio" name="pr-dir" value="ltr" aria-label="Crosswind, left to right" /><span aria-hidden="true">→</span></label>
+          <label title="Head-crosswind, right to left"><input type="radio" name="pr-dir" value="headRtl" aria-label="Head-crosswind, right to left" /><span aria-hidden="true">↙</span></label>
+          <label title="Headwind"><input type="radio" name="pr-dir" value="head" aria-label="Headwind, toward you" /><span aria-hidden="true">↓</span></label>
+          <label title="Head-crosswind, left to right"><input type="radio" name="pr-dir" value="headLtr" aria-label="Head-crosswind, left to right" /><span aria-hidden="true">↘</span></label>
+          <p class="dir-caption" id="pr-dir-caption" aria-hidden="true"></p>
+        </fieldset>
+        <fieldset class="segmented" id="pr-preview">
+          <legend>Aim preview</legend>
+          <label><input type="radio" name="pr-preview" value="3" />Full</label>
+          <label><input type="radio" name="pr-preview" value="2" />Long</label>
+          <label><input type="radio" name="pr-preview" value="1" />Short</label>
+          <label><input type="radio" name="pr-preview" value="0" />Off</label>
+        </fieldset>
+        <button id="btn-practice-back" class="btn" type="button">Back</button>
       </div>
     </div>
   </section>

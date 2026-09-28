@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
 import {
-  GOALPOST_Z, BALL_TEE_Y, TOTAL_ROUNDS, POINTS_PER_GOAL,
+  GOALPOST_Z, BALL_TEE_Y, POINTS_PER_GOAL,
   ELEVATION_MIN_DEG, ELEVATION_MAX_DEG, ELEVATION_DEFAULT_DEG,
 } from '../config.js';
 import { simulate, isGoal, DT } from '../physics/simulate.js';
@@ -17,7 +17,7 @@ import {
 } from '../physics/conversion.js';
 import { describeWind } from '../physics/wind.js';
 import { explain, RESULT_COPY } from '../physics/explain.js';
-import { generateRound } from './round.js';
+import { MODES } from '../modes/modes.js';
 import { meterPower } from './meter.js';
 import { keyLabel } from '../input/bindings.js';
 import { createEmitter } from '../core/events.js';
@@ -64,11 +64,15 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   const g = {
     state: 'idle',
     active: false, // false while a menu is open: game ignores input
-    mode: 'match', // match | tutorial
+    mode: 'match', // match | daily | practice | pressure | tutorial
+    modeDef: MODES.match,
+    practice: null, // practice options
+    lastTee: null, // practice: keep the player's tee spot between kicks
+    shot: null, // pressure shot clock { limit, left }
     stateTime: 0,
     time: 0,
     round: 1,
-    totalRounds: TOTAL_ROUNDS,
+    totalRounds: 10,
     points: 0,
     goals: 0,
     streak: 0,
@@ -151,7 +155,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       case 'establish': {
         const { tryX } = g.roundInfo;
         g.suggestedDist = suggestedTeeDistance(tryX);
-        g.teeDist = g.suggestedDist;
+        g.teeDist = g.mode === 'practice' && g.lastTee?.tryX === tryX ? g.lastTee.dist : g.suggestedDist;
         g.yaw = yawToPosts(tryX, GOALPOST_Z + g.teeDist);
         placeBallOnTee();
         ball.visible = false;
@@ -168,6 +172,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       }
 
       case 'tee':
+        startShotClock();
         if (settings.get().alwaysSuggestedTee) {
           go('aim');
           return;
@@ -197,9 +202,51 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
         rig.aimShot(teePos(), g.yaw, g.stateTime === 0 ? 2.5 : 4);
         break;
 
-      case 'result':
+      case 'timeup':
+        g.hold = 0;
+        ball.visible = true;
+        g.log.push({ round: g.round, outcome: 'time_up', scored: false, teeDist: g.teeDist, tryX: g.roundInfo.tryX, crossing: null });
+        g.streak = 0;
+        updateScore();
+        events.emit('result', { outcome: 'time_up', scored: false, crossing: null, focus: teePos(), streak: 0 });
+        hud.showResult({ outcome: 'time_up', title: RESULT_COPY.time_up.title, tone: 'bad', points: 0, why: 'Kick before the clock runs out', next: nextLabel() });
+        hud.setPhase('result');
+        onPhase('result');
         break;
     }
+  }
+
+  function startShotClock() {
+    if (g.shot) return; // keep running if we come back to the tee
+    const limit = g.modeDef.shotClock(g.round, g.roundInfo);
+    g.shot = limit ? { limit, left: limit, lastWhole: Math.ceil(limit) } : null;
+    hud.setShotClock(g.shot);
+  }
+
+  function updateShotClock(dt) {
+    if (!g.shot) return;
+    g.shot.left = Math.max(0, g.shot.left - dt);
+    const whole = Math.ceil(g.shot.left);
+    if (whole !== g.shot.lastWhole) {
+      g.shot.lastWhole = whole;
+      if (whole <= 5) events.emit('clockTick', { left: whole });
+    }
+    hud.setShotClock(g.shot);
+    if (g.shot.left <= 0) {
+      g.shot = null;
+      hud.setShotClock(null);
+      go('timeup');
+    }
+  }
+
+  function updateScore() {
+    const kick = Number.isFinite(g.totalRounds) ? `Kick ${g.round}/${g.totalRounds}` : `Kick ${g.round}`;
+    hud.setScore(kick, g.modeDef.score(g));
+  }
+
+  function nextLabel() {
+    if (!g.modeDef.ends(g)) return 'Next kick';
+    return g.mode === 'tutorial' ? 'Done' : 'See the summary';
   }
 
   function exit(state) {
@@ -232,6 +279,9 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   }
 
   function kick(power) {
+    g.shot = null; // contact stops the clock
+    hud.setShotClock(null);
+    if (g.mode === 'practice') g.lastTee = { tryX: g.roundInfo.tryX, dist: g.teeDist };
     const k = currentKick(power);
     g.lastPower = power;
     const result = simulate(k, g.roundInfo.wind);
@@ -262,8 +312,8 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
     } else {
       g.streak = 0;
     }
-    g.log.push({ round: g.round, outcome, teeDist: g.teeDist, tryX: g.roundInfo.tryX, crossing: f.result.crossing });
-    hud.setScore(g.round, g.totalRounds, g.points);
+    g.log.push({ round: g.round, outcome, scored, teeDist: g.teeDist, tryX: g.roundInfo.tryX, crossing: f.result.crossing, landing: f.result.landing });
+    updateScore();
     events.emit('result', { outcome, scored, crossing: f.result.crossing, focus: f.focus, streak: g.streak });
     hud.showResult({
       outcome,
@@ -271,7 +321,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       tone: copy.tone,
       points: scored ? POINTS_PER_GOAL : 0,
       why: explain(f.kick, g.roundInfo.wind, f.result),
-      next: g.round >= g.totalRounds ? (g.mode === 'tutorial' ? 'Done' : 'See the summary') : 'Next kick',
+      next: nextLabel(),
     });
     hud.setPhase('result');
     onPhase('result');
@@ -286,11 +336,12 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   function nextRound() {
     if (g.state === 'over') return;
     onPhase('next');
-    if (g.round >= g.totalRounds) {
+    if (g.modeDef.ends(g)) {
       go('over');
       g.flight = null;
       onMatchEnd({
         mode: g.mode,
+        streak: g.mode === 'pressure' ? g.goals : g.bestStreak, // pressure ends at the first miss
         points: g.points,
         goals: g.goals,
         total: g.totalRounds,
@@ -305,18 +356,24 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   }
 
   function setupRound() {
-    g.roundInfo = g.mode === 'tutorial'
-      // Calm, slightly off-centre, full preview and a slow meter
-      ? { difficulty: 0, tryX: -9, wind: { x: 0, z: 0 }, windSpeed: 0, previewTier: 3, meterPeriod: 2 }
-      : generateRound(g.round, g.totalRounds, rng);
+    g.roundInfo = g.modeDef.round(g.round, { rng, practice: g.practice });
     g.flight = null;
-    hud.setScore(g.round, g.totalRounds, g.points);
+    g.shot = null;
+    hud.setShotClock(null);
+    updateScore();
     go('establish');
   }
 
-  function start(mode = 'match') {
+  /**
+   * @param {string} mode   key of MODES
+   * @param {{practice?: object}} [opts]
+   */
+  function start(mode = 'match', opts = {}) {
     g.mode = mode;
-    g.totalRounds = mode === 'tutorial' ? 1 : TOTAL_ROUNDS;
+    g.modeDef = MODES[mode];
+    g.totalRounds = g.modeDef.rounds;
+    g.practice = opts.practice ?? null;
+    g.lastTee = null;
     g.round = 1;
     g.points = 0;
     g.goals = 0;
@@ -471,6 +528,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   input.on('any', () => {
     if (!g.active) return;
     if (g.state === 'establish' && g.stateTime > INPUT_GRACE) go('tee');
+    else if (g.state === 'timeup' && g.hold > 0.35) nextRound();
     else if (g.flight?.revealed && g.flight.hold > 0.35) nextRound();
   });
 
@@ -553,7 +611,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   });
 
   hud.onNext(() => {
-    if (g.active && g.flight?.revealed) nextRound();
+    if (g.active && (g.flight?.revealed || g.state === 'timeup')) nextRound();
   });
 
   // --- main update ---------------------------------------------------------------
@@ -579,7 +637,14 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
         if (g.stateTime >= (longIntro() ? ESTABLISH_FIRST : ESTABLISH)) go('tee');
         break;
 
+      case 'timeup':
+        g.hold += dt;
+        if (g.hold >= RESULT_HOLD) nextRound();
+        break;
+
       case 'tee': {
+        updateShotClock(dt);
+        if (g.state !== 'tee') break;
         const { elev, fine } = input.axes();
         if (elev) {
           g.teeDist = clampTeeDistance(g.teeDist - elev * TEE_RATE * (fine ? FINE : 1) * dt);
@@ -591,6 +656,8 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       }
 
       case 'aim':
+        updateShotClock(dt);
+        if (g.state !== 'aim') break;
         updateAim(dt);
         hud.setWindArrow(describeWind(g.roundInfo.wind, rig.viewYaw).arrowDeg);
         break;

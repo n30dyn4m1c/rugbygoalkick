@@ -17,9 +17,21 @@ export function setHandedness(hand) {
   root.dataset.hand = hand;
 }
 
-export function setScore(kick, total, points) {
-  $('hud-kick').textContent = total ? `Kick ${kick}/${total}` : `Kick ${kick}`;
-  $('hud-points').textContent = `${points} pts`;
+export function setScore(kickText, scoreText) {
+  $('hud-kick').textContent = kickText;
+  $('hud-points').textContent = scoreText;
+}
+
+/** Pressure shot clock: seconds left as a number and a bar, or null to hide. */
+export function setShotClock(shot) {
+  const el = $('shot-clock');
+  el.hidden = !shot;
+  if (!shot) return;
+  const left = Math.ceil(shot.left);
+  $('shot-clock-value').textContent = String(left);
+  $('shot-clock-bar').style.transform = `scaleX(${shot.left / shot.limit})`;
+  el.classList.toggle('urgent', left <= 5);
+  el.setAttribute('aria-label', `Shot clock: ${left} seconds`);
 }
 
 /**

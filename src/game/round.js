@@ -3,7 +3,8 @@
 // The kick distance is the player's choice (tee placement), so difficulty
 // comes from how wide the try is, the wind, the preview and the meter speed.
 // ---------------------------------------------------------------------------
-import { FIELD_WIDTH } from '../config.js';
+import { FIELD_WIDTH, GOALPOST_Z } from '../config.js';
+import { yawToPosts, suggestedTeeDistance } from '../physics/conversion.js';
 
 const MAX_TRY_X = FIELD_WIDTH / 2 - 1;
 
@@ -50,4 +51,61 @@ export function generateRound(round, totalRounds, rng) {
     previewTier: matchPreviewTier(diff),
     meterPeriod: 1.6 - diff * 0.5, // seconds for one 0→100→0 sweep
   };
+}
+
+// ---------------------------------------------------------------------------
+// Pressure: difficulty climbs with every kick in the streak.
+// ---------------------------------------------------------------------------
+
+/** Preview gets shorter, then disappears (the hardest tier has none). */
+export function pressurePreviewTier(kick) {
+  if (kick <= 3) return 2;
+  if (kick <= 7) return 1;
+  return 0;
+}
+
+/** Seconds on the shot clock for kick n (1-based): generous early, tight later. */
+export function pressureShotClock(kick) {
+  return Math.max(12, 26 - (kick - 1) * 1.5);
+}
+
+export function generatePressureRound(kick, rng) {
+  const diff = Math.min(1, (kick - 1) / 12);
+  const r = generateRound(1 + diff * 9, 10, rng);
+  return { ...r, previewTier: pressurePreviewTier(kick), meterPeriod: 1.6 - diff * 0.6, shotClock: pressureShotClock(kick) };
+}
+
+// ---------------------------------------------------------------------------
+// Practice: the player chooses the try spot, wind and preview.
+// ---------------------------------------------------------------------------
+
+/** Wind directions relative to a kicker facing the posts: [along, across] unit parts. */
+export const PRACTICE_WIND_DIRS = {
+  head: [-1, 0],
+  tail: [1, 0],
+  ltr: [0, 1],
+  rtl: [0, -1],
+  headLtr: [-Math.SQRT1_2, Math.SQRT1_2],
+  headRtl: [-Math.SQRT1_2, -Math.SQRT1_2],
+  tailLtr: [Math.SQRT1_2, Math.SQRT1_2],
+  tailRtl: [Math.SQRT1_2, -Math.SQRT1_2],
+};
+
+/**
+ * @param {{tryX: number, windSpeed: number, windDir: string, previewTier: number}} opts
+ *   windDir is a PRACTICE_WIND_DIRS key or 'random'
+ */
+export function generatePracticeRound(opts, rng) {
+  const tryX = opts.tryX;
+  const facing = yawToPosts(tryX, GOALPOST_Z + suggestedTeeDistance(tryX));
+  const keys = Object.keys(PRACTICE_WIND_DIRS);
+  const dirKey = opts.windDir === 'random' ? keys[Math.floor(rng() * keys.length)] : opts.windDir;
+  const [along, across] = PRACTICE_WIND_DIRS[dirKey] ?? [0, 0];
+  const fx = Math.sin(facing);
+  const fz = -Math.cos(facing);
+  const rx = Math.cos(facing);
+  const rz = Math.sin(facing);
+  const sp = opts.windSpeed;
+  const wind = { x: (fx * along + rx * across) * sp, z: (fz * along + rz * across) * sp };
+  return { difficulty: 0, tryX, wind, windSpeed: sp, previewTier: opts.previewTier, meterPeriod: 1.6 };
 }

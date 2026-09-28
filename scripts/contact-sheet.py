@@ -3,7 +3,7 @@ import sys, os
 from PIL import Image
 src = sys.argv[1] if len(sys.argv) > 1 else 'screenshots'
 out = sys.argv[2] if len(sys.argv) > 2 else src
-order = ['title', 'tutorial', 'establish', 'tee', 'aiming', 'drag', 'flight', 'result', 'doink', 'pause', 'settings', 'summary']
+order = ['title', 'tutorial', 'establish', 'tee', 'aiming', 'drag', 'flight', 'result', 'doink', 'pause', 'settings', 'summary', 'practice-setup', 'practice', 'pressure', 'pressure-summary']
 for size, scale in [('phone-portrait', 0.5), ('phone-landscape', 0.5), ('desktop', 0.5)]:
     ims = []
     for n in order:

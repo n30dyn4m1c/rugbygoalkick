@@ -35,6 +35,9 @@ import { createSfx } from './audio/sfx.js';
 import { createCrowdAudio } from './audio/crowd.js';
 import { createMusic } from './audio/music.js';
 import { createConfetti } from './world/fx.js';
+import { createHeatmap } from './world/heatmap.js';
+import { hashSeed } from './core/rng.js';
+import { todayKey } from './modes/modes.js';
 import { createHaptics } from './ui/haptics.js';
 import { reducedMotion, onSystemMotionChange } from './ui/motion.js';
 
@@ -67,6 +70,7 @@ const tryMarker = createTryMarker(scene);
 const preview = createAimPreview(scene);
 const teeGuide = createTeeGuide(scene);
 const confetti = createConfetti(scene);
+const heatmap = createHeatmap(scene);
 const lookdev = createLookdev({
   renderer, scene, sky, lighting, crowd, scenery, post, mobile,
   ballMap: ball.userData.map,
@@ -151,13 +155,18 @@ const game = createGame({
   onPhase(phase) {
     lastPhase = phase;
     tutorial.phase(phase, input.lastDevice);
+    heatmap.visible = game.state.mode === 'practice' && ['tee', 'aim', 'flight', 'result', 'timeup'].includes(phase);
   },
   onMatchEnd(summary) {
     if (summary.mode === 'tutorial') {
       showTitle();
       return;
     }
-    const record = scores.recordMatch(summary);
+    const record = summary.mode === 'pressure'
+      ? scores.recordPressure(summary)
+      : summary.mode === 'daily'
+        ? scores.recordDaily({ points: summary.points, date: todayKey() })
+        : scores.recordMatch(summary);
     screens.fillSummary({ ...summary, record });
     game.setActive(false);
     app.mode = 'summary';
@@ -197,7 +206,12 @@ game.on('post', (hit) => {
   if (!reduced()) rig.shake(0.05);
 });
 game.on('land', () => sfx.thud());
+game.on('clockTick', ({ left }) => sfx.tick(left <= 3 ? 0.6 : 0.8));
 game.on('result', ({ scored, focus }) => {
+  if (game.state.mode === 'practice') {
+    heatmap.update(game.state.log);
+    scores.update('practice', { kicks: scores.get().practice.kicks + 1, goals: scores.get().practice.goals + (scored ? 1 : 0) });
+  }
   if (scored) {
     crowdAudio.cheer(true);
     haptics.goal();
@@ -264,19 +278,38 @@ function showTitle() {
   game.idle();
   app.mode = 'title';
   updateMusic();
-  screens.setTitleBest(scores.get().match);
+  screens.setTitleBest(scores.get(), todayKey());
   screens.open('screen-title', { focus: 'btn-play' });
 }
 
-function startMatch() {
+let lastMode = 'match';
+let matchRng = rng;
+
+/** Start any mode. Daily uses a date seed so everyone gets the same ten kicks. */
+function startMode(mode) {
   screens.closeAll();
   loop.resume();
   audio.resume();
   app.mode = 'playing';
+  lastMode = mode;
   updateMusic();
-  game.start('match');
-  if (!settings.get().tutorialDone) tutorial.start(() => settings.set({ tutorialDone: true }));
+  if (mode === 'daily') rng = createRng(hashSeed(`daily:${todayKey()}`));
+  else rng = matchRng;
+  heatmap.update([]);
+  game.start(mode, { practice: settings.get().practice });
+  document.getElementById('btn-practice-options').hidden = mode !== 'practice';
+  if (!settings.get().tutorialDone && mode !== 'practice') tutorial.start(() => settings.set({ tutorialDone: true }));
   tutorial.phase(lastPhase, input.lastDevice);
+}
+
+function startMatch() {
+  startMode('match');
+}
+
+const syncPractice = screens.bindPractice(settings);
+function openPractice() {
+  syncPractice();
+  screens.open('screen-practice', { focus: 'btn-practice-start' });
 }
 
 function startTutorial() {
@@ -314,7 +347,7 @@ function openSettings() {
 
 /** Esc / gamepad B / pause key: step back one level. */
 function back() {
-  if (screens.top() === 'screen-settings') screens.close();
+  if (screens.top() === 'screen-settings' || screens.top() === 'screen-practice') screens.close();
   else if (app.mode === 'paused') resume();
   else if (app.mode === 'playing') pause();
 }
@@ -324,15 +357,18 @@ on('btn-play', startMatch);
 on('btn-howto', startTutorial);
 on('btn-settings', openSettings);
 on('btn-resume', resume);
-on('btn-restart', () => {
-  screens.closeAll();
-  startMatch();
-});
+on('btn-restart', () => startMode(lastMode));
+on('btn-practice', openPractice);
+on('btn-pressure', () => startMode('pressure'));
+on('btn-daily', () => startMode('daily'));
+on('btn-practice-start', () => startMode('practice'));
+on('btn-practice-back', () => screens.close());
+on('btn-practice-options', openPractice);
 on('btn-pause-howto', startTutorial);
 on('btn-pause-settings', openSettings);
 on('btn-quit', showTitle);
 on('btn-settings-done', () => screens.close());
-on('btn-again', startMatch);
+on('btn-again', () => startMode(lastMode));
 on('btn-summary-title', showTitle);
 hud.onPause(pause);
 
@@ -389,8 +425,11 @@ if (import.meta.env.DEV) {
     look: (key) => lookdev.apply(key),
     /** Seed the round sequence (takes effect for the next match). */
     seed(n) {
-      rng = createRng(n);
+      rng = matchRng = createRng(n);
     },
+    startMode,
+    openPractice,
+    heatmap,
     freeze() {
       loop.setManual(true);
     },

@@ -190,21 +190,35 @@ export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault
 // ---------------------------------------------------------------------------
 // Title & summary content
 // ---------------------------------------------------------------------------
-export function setTitleBest(best) {
-  $('title-best').textContent = best.bestPoints ? `Best: ${best.bestPoints} pts · best streak ${best.bestStreak}` : '';
+export function setTitleBest(all, today) {
+  const parts = [];
+  if (all.match.bestPoints) parts.push(`Best ${all.match.bestPoints} pts`);
+  if (all.pressure.bestStreak) parts.push(`pressure streak ${all.pressure.bestStreak}`);
+  $('title-best').textContent = parts.join(' · ');
+  $('daily-sub').textContent = all.daily.date === today && all.daily.bestPoints ? `Today: ${all.daily.bestPoints} pts` : 'Same kicks for all';
 }
 
-export function fillSummary({ points, goals, total, bestStreak, log, record }) {
-  $('sum-points').textContent = String(points);
+export function fillSummary({ mode, points, goals, streak, bestStreak, log, record }) {
+  const pressure = mode === 'pressure';
+  const total = log.length;
+  $('summary-heading').textContent = pressure ? 'Streak over' : mode === 'daily' ? 'Daily challenge' : 'Full time';
+  $('sum-points').parentElement.lastChild.textContent = pressure ? (streak === 1 ? ' goal' : ' goals') : ' pts';
+  $('sum-points').textContent = String(pressure ? streak : points);
   const pct = total ? Math.round((goals / total) * 100) : 0;
-  $('sum-line').textContent = `${goals}/${total} goals · ${pct}% · best streak ${bestStreak}`;
+  $('sum-line').textContent = pressure ? `${streak} in a row before the miss` : `${goals}/${total} goals · ${pct}% · best streak ${bestStreak}`;
 
   const best = $('sum-best');
   const { beat, previous } = record;
   best.classList.toggle('new', beat.points || beat.streak);
-  if (beat.points) best.textContent = previous.bestPoints ? `New best! Previous ${previous.bestPoints} pts` : 'New best!';
-  else if (beat.streak) best.textContent = `New best streak! Previous ${previous.bestStreak}`;
-  else best.textContent = `Best: ${previous.bestPoints} pts`;
+  if (pressure) {
+    best.textContent = beat.streak ? (previous.bestStreak ? `New best! Previous ${previous.bestStreak}` : 'New best!') : `Best streak: ${previous.bestStreak}`;
+  } else if (beat.points) {
+    best.textContent = previous.bestPoints ? `New best! Previous ${previous.bestPoints} pts` : 'New best!';
+  } else if (beat.streak) {
+    best.textContent = `New best streak! Previous ${previous.bestStreak}`;
+  } else {
+    best.textContent = `Best: ${previous.bestPoints} pts`;
+  }
 
   const rows = $('sum-rows');
   rows.replaceChildren();
@@ -212,6 +226,7 @@ export function fillSummary({ points, goals, total, bestStreak, log, record }) {
     const tr = document.createElement('tr');
     const copy = RESULT_COPY[k.outcome];
     const cells = [String(k.round), `${k.teeDist.toFixed(0)} m`, copy.title, copy.points ? `+${copy.points}` : '0'];
+    if (pressure) cells[3] = k.scored ? '✓' : '—';
     for (const [i, text] of cells.entries()) {
       const td = document.createElement('td');
       td.textContent = i === 2 ? `${copy.points ? '✓' : '✕'} ${text}` : text;
@@ -220,4 +235,55 @@ export function fillSummary({ points, goals, total, bestStreak, log, record }) {
     }
     rows.append(tr);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Practice options
+// ---------------------------------------------------------------------------
+const DIR_WORDS = {
+  tail: 'Tailwind: carries the ball toward the posts', head: 'Headwind: holds the ball up', ltr: 'Crosswind, left to right',
+  rtl: 'Crosswind, right to left', tailLtr: 'Tail-crosswind, left to right', tailRtl: 'Tail-crosswind, right to left',
+  headLtr: 'Head-crosswind, left to right', headRtl: 'Head-crosswind, right to left', random: 'Random direction each kick',
+};
+
+export function bindPractice(settings) {
+  const opts = () => settings.get().practice;
+  const set = (patch) => settings.set({ practice: { ...opts(), ...patch } });
+
+  const tryEl = $('pr-tryX');
+  const tryOut = $('pr-tryX-out');
+  const showTry = () => {
+    const x = Number(tryEl.value);
+    tryOut.textContent = Math.abs(x) < 2 ? 'Centre' : `${Math.abs(x)} m ${x < 0 ? 'left' : 'right'}`;
+  };
+  tryEl.addEventListener('input', () => {
+    showTry();
+    set({ tryX: Number(tryEl.value) });
+  });
+
+  const radios = (name, key, parse) => {
+    for (const el of document.querySelectorAll(`input[name="${name}"]`)) {
+      el.addEventListener('change', () => el.checked && set({ [key]: parse(el.value) }));
+    }
+  };
+  radios('pr-speed', 'windSpeed', Number);
+  radios('pr-dir', 'windDir', String);
+  radios('pr-preview', 'previewTier', Number);
+
+  const caption = () => {
+    $('pr-dir-caption').textContent = opts().windSpeed === 0 ? 'No wind' : DIR_WORDS[opts().windDir];
+    $('pr-windDir').disabled = opts().windSpeed === 0;
+  };
+  settings.subscribe(caption);
+
+  // Reflect saved options whenever the screen opens
+  return function sync() {
+    const o = opts();
+    tryEl.value = String(o.tryX);
+    showTry();
+    for (const [name, val] of [['pr-speed', o.windSpeed], ['pr-dir', o.windDir], ['pr-preview', o.previewTier]]) {
+      for (const el of document.querySelectorAll(`input[name="${name}"]`)) el.checked = el.value === String(val);
+    }
+    caption();
+  };
 }

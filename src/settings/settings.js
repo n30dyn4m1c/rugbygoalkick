@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   menuMusic: true,
   haptics: true,
   reduceMotion: 'auto', // auto (system setting) | on | off
+  practice: { tryX: 12, windSpeed: 0, windDir: 'random', previewTier: 3 },
   bindings: DEFAULT_BINDINGS,
 };
 

@@ -56,6 +56,11 @@ const STATES = [
   ['pause', (g) => { g.pause(); g.step(0.1); }],
   ['settings', (g) => { g.openSettings(); g.step(0.1); }],
   ['summary', (g) => { g.resume(); g.autoplay(10); g.step(0.2); }],
+  ['practice-setup', (g) => { g.showTitle(); g.settings.set({ practice: { tryX: 18, windSpeed: 4, windDir: 'ltr', previewTier: 2 } }); g.openPractice(); g.step(0.1); }],
+  // Let the last goal's confetti and +2 finish so the heat map is readable
+  ['practice', (g) => { g.seed(SEED); g.startMode('practice'); g.autoplay(6); g.go('tee'); g.step(0.3); g.go('aim'); g.step(4); return new Promise((r) => setTimeout(r, 1500)); }],
+  ['pressure', (g) => { g.showTitle(); g.seed(SEED); g.startMode('pressure'); g.step(0.5); g.go('tee'); g.step(4.0); }],
+  ['pressure-summary', (g) => { g.go('aim'); g.kickFor('wide_right'); for (let i = 0; i < 80 && g.state.state !== 'over'; i++) g.step(0.1); g.step(0.2); }],
 ];
 
 await mkdir(outDir, { recursive: true });

@@ -13,6 +13,7 @@ export const RESULT_COPY = {
   [OUTCOME.UNDER_BAR]: { title: 'Under the bar', tone: 'bad', points: 0 },
   [OUTCOME.POST_OUT]: { title: 'Hit the post', tone: 'bad', points: 0 },
   [OUTCOME.BAR_OUT]: { title: 'Off the crossbar', tone: 'bad', points: 0 },
+  time_up: { title: 'Shot clock expired', tone: 'bad', points: 0 },
 };
 
 const m = (v) => `${Math.abs(v).toFixed(1)} m`;
