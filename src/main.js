@@ -10,6 +10,11 @@ import { createField } from './world/field.js';
 import { createCornerFlags } from './world/flags.js';
 import { createGoalposts } from './world/posts.js';
 import { createStadium } from './world/stadium.js';
+import { createSky } from './world/sky.js';
+import { createCrowd } from './world/crowd.js';
+import { createScenery } from './world/scenery.js';
+import { createLookdev } from './world/lookdev.js';
+import { createPost } from './world/post.js';
 import { createTee, createBall, createTryMarker } from './world/props.js';
 import { createAimPreview } from './world/aimPreview.js';
 import { createTeeGuide } from './world/teeGuide.js';
@@ -30,20 +35,32 @@ import { installDebugHook } from './debug/hook.js';
 // World
 // ---------------------------------------------------------------------------
 let rig;
-const { scene, camera, renderer } = createRenderer(document.getElementById('stage'), () => rig?.fitAspect());
+let post;
+const { scene, camera, renderer } = createRenderer(document.getElementById('stage'), () => {
+  rig?.fitAspect();
+  post?.resize(window.innerWidth, window.innerHeight);
+});
 rig = createCameraRig(camera);
 rig.fitAspect();
+post = createPost(renderer, scene, camera);
 
-createLighting(scene);
+const sceneryRng = createRng(1); // fixed seed: scenery looks the same every load
+const sky = createSky(scene);
+const lighting = createLighting(scene);
 createField(scene);
 const flags = createCornerFlags(scene);
 createGoalposts(scene);
-createStadium(scene, createRng(1)); // fixed seed: scenery looks the same every load
+const stadium = createStadium(scene);
+const crowd = createCrowd(scene, stadium.rows, sceneryRng);
+const scenery = createScenery(scene, sceneryRng);
+const mobile = matchMedia('(pointer: coarse)').matches;
+const lookdev = createLookdev({ renderer, scene, sky, lighting, crowd, scenery, post, mobile });
 const tee = createTee(scene);
 const ball = createBall(scene);
 const tryMarker = createTryMarker(scene);
 const preview = createAimPreview(scene);
 const teeGuide = createTeeGuide(scene);
+lookdev.apply(new URLSearchParams(location.search).get('look')?.toUpperCase() || 'A');
 
 // ---------------------------------------------------------------------------
 // Input, settings, tutorial
@@ -97,9 +114,10 @@ const game = createGame({
 const loop = createLoop({
   step(dt) {
     game.update(dt);
+    crowd.update(game.state.time, 0);
   },
   render() {
-    renderer.render(scene, camera);
+    post.render();
   },
 });
 
@@ -211,6 +229,10 @@ if (import.meta.env.DEV) {
     settings,
     scores,
     app,
+    lookdev,
+    post,
+    crowd,
+    look: (key) => lookdev.apply(key),
     /** Seed the round sequence (takes effect for the next match). */
     seed(n) {
       rng = createRng(n);

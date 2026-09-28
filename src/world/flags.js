@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
 import { GOALPOST_Z, FIELD_WIDTH } from '../config.js';
+import { role } from './materials.js';
 
 const FLAG_POST_HEIGHT = 1.5;
 const FLAG_WIDTH = 1.0;
@@ -11,8 +12,7 @@ const FLAG_HEIGHT = 0.6;
 function createCornerFlag(scene, x, z) {
   const group = new THREE.Group();
   const postGeo = new THREE.CylinderGeometry(0.03, 0.03, FLAG_POST_HEIGHT, 8);
-  const postMat = new THREE.MeshStandardMaterial({ color: 0xffdd00 });
-  const post = new THREE.Mesh(postGeo, postMat);
+  const post = role(new THREE.Mesh(postGeo), 'flagPole');
   post.position.y = FLAG_POST_HEIGHT / 2;
   post.castShadow = true;
   group.add(post);
@@ -26,8 +26,7 @@ function createCornerFlag(scene, x, z) {
   flagShape.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   flagShape.computeVertexNormals();
 
-  const flagMat = new THREE.MeshStandardMaterial({ color: 0xff1744, side: THREE.DoubleSide });
-  const flag = new THREE.Mesh(flagShape, flagMat);
+  const flag = role(new THREE.Mesh(flagShape), 'flag');
   flag.position.set(0, FLAG_POST_HEIGHT - FLAG_HEIGHT, 0);
   group.add(flag);
 
