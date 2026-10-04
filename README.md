@@ -1,6 +1,13 @@
 # Rugby Goal Kick
 
-A rugby league goal-kicking game under Papua New Guinea floodlights, for phones and desktop. Pick your spot on the conversion line, read the wind, and put it between the posts. Built with Three.js and Vite; everything (geometry, textures, sound) is generated in code.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Three.js](https://img.shields.io/badge/Three.js-0.170-black.svg)](https://threejs.org/)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg)](https://vite.dev/)
+[![PWA](https://img.shields.io/badge/PWA-offline-5A0FC8.svg)](https://web.dev/explore/progressive-web-apps)
+
+**Browser 3D rugby league goal-kicking game in Three.js and Vite, with wind physics, four modes, and offline play as an installable app.**
+
+You take conversions at a ground in Papua New Guinea under floodlights, on a phone or a desktop. Choose your spot on the conversion line, read the wind, and kick the ball between the posts. All geometry, textures, sound and music are generated in code. The game loads no image, model or audio files, and its only runtime dependencies are Three.js and a self-hosted font.
 
 <p>
   <img src="docs/screenshots/phone-portrait-aiming.jpg" width="200" alt="Aiming on a phone: dotted trajectory arc, wind card, height slider">
@@ -9,22 +16,24 @@ A rugby league goal-kicking game under Papua New Guinea floodlights, for phones 
 </p>
 <img src="docs/screenshots/desktop-title.jpg" width="620" alt="Title screen over the floodlit ground">
 
-## Play
+## Features
 
-```bash
-npm install
-npm run dev        # http://localhost:5173
-```
+- **League conversion rules**: posts 5.5 m apart, crossbar at 3 m, 2 points for a conversion. You choose the tee position anywhere on the line straight back from the try
+- **Wind and ball flight** use a 120 Hz simulation with drag. The ball can hit the uprights or crossbar, then go in or bounce out
+- **Aim preview** uses the same simulation as the kick, so the dotted arc shows exactly where the ball goes. On later kicks, less of the arc shows
+- **Results tell you why you missed**, for example *"Missed by 0.6 m · Wind carried it 1.2 m left"*
+- **Four modes**: Match, Practice, Pressure and Daily, plus an interactive tutorial
+- **Touch, mouse, keyboard and gamepad** controls. You can remap the keys, and there is a left-handed layout
+- **Accessibility**: text size, high contrast, reduce motion, assists for the meter and preview, and screen reader announcements. No information is shown by colour alone
+- **Installable PWA** that works offline after the first visit
 
-Two taps from page load to your first kick: **Play match**, then **Kick from here**.
+## How to play
 
-### The kick
+The fastest path from page load to your first kick is two taps: **Play match**, then **Kick from here**.
 
-1. **Place the tee.** A conversion is taken anywhere on the line straight back from where the try was scored. Stepping back widens the angle to the posts but makes the kick longer. The gold ring is a good spot.
-2. **Aim, set the height, choose the power.** The dotted arc and the ring at the posts show exactly where the ball will go, wind included. Later kicks show less of the arc.
-3. **Read the result.** Every result says why: *"Missed by 0.6 m · Wind carried it 1.2 m left"*.
-
-League rules: posts 5.5 m apart, crossbar 3 m, 2 points for a conversion. The ball can hit the uprights or crossbar and go in or out.
+1. **Place the tee.** If you step back, the angle to the posts is wider but the kick is longer. The gold ring is a good spot.
+2. **Aim, set the height, choose the power.** The dotted arc and the ring at the posts show where the ball will go, with the wind included.
+3. **Read the result.** Each result card gives the distance of the miss and the cause.
 
 ### Controls
 
@@ -41,38 +50,95 @@ League rules: posts 5.5 m apart, crossbar 3 m, 2 points for a conversion. The ba
 
 ### Modes
 
-- **Match**: 10 conversions. Tries get wider, the wind stronger and the preview shorter. Best score and best streak are saved.
-- **Practice**: choose the try spot, the wind and how much preview you get. Unlimited kicks, with a heat map of your last eight at the posts.
-- **Pressure**: keep scoring until you miss. Every kick is harder, the preview fades out, and there's a shot clock.
-- **Daily**: today's ten kicks, the same for everyone.
-- **How to play**: a one-kick interactive tutorial (it also runs on your first match).
+| Mode | Rules |
+|------|-------|
+| **Match** | 10 conversions. On each kick, the try is wider, the wind is stronger and the preview is shorter. The game saves your best score and best streak |
+| **Practice** | Choose the try spot, the wind and the length of the preview. The kicks are unlimited, and a heat map at the posts shows your last eight |
+| **Pressure** | Keep scoring until you miss. Each kick is harder, the preview fades out, and a shot clock runs |
+| **Daily** | Ten kicks for today. Everyone gets the same kicks |
+| **How to play** | A tutorial of one interactive kick. It also runs at the start of your first match |
 
-### Settings and accessibility
+### Settings
 
-Aim sensitivity, invert drag aim, left-handed layout, key remapping, slower meter and longer preview assists, always-use-the-suggested-spot. Separate Master, Effects, Crowd and Music volumes, a mute toggle and vibration. Text size, high contrast and reduce motion (which follows your system setting by default), plus floodlight glow (bloom). Everything is remembered. Every menu works with keyboard, gamepad and screen readers, and no information is carried by colour alone.
+| Group | Options |
+|-------|---------|
+| Controls | Aim sensitivity, invert drag aim, left-handed layout, key remapping, always use the suggested spot |
+| Assists | Slower meter, longer preview |
+| Audio | Master, Effects, Crowd and Music volumes, mute, vibration |
+| Display | Text size, high contrast, reduce motion (follows the system setting by default), floodlight glow (bloom) |
 
-### Offline
+The game remembers all of your settings. All menus work with a keyboard, a gamepad and a screen reader.
 
-It's an installable web app: after the first visit it works offline.
+## How it works
 
-## Develop
+- **One simulation.** The game simulates the kick once at contact with semi-implicit Euler at 120 Hz, using gravity and quadratic drag relative to the wind. Then it plays the result back sample by sample. The aim preview calls the same `simulate()`, so the preview, the flight and the result always agree. The simulation has no hidden randomness.
+- **Collisions** use a swept sphere against cylinders for the uprights and the crossbar. The game finds the goal plane from the segment that crosses it before the ball first touches the ground.
+- **Pure core.** `physics/`, `game/round.js`, `game/meter.js`, `core/` and `settings/storage.js` do not import Three.js or use the DOM, so the unit tests run them in Node.
+- **Look.** The floodlit night style is a preset in `world/lookdev.js`. Each world mesh has a role, and a preset replaces the material for each role. Bloom loads only when you need it, and the shadow map updates only when the ball moves.
+- **Performance.** The pixel ratio has a maximum of 2. The resolution decreases on slow frames and increases again when there is spare time. The loop stops when the game pauses or the tab is hidden.
 
-```bash
-npm run dev            # dev server with the window.__game debug hook
-npm test               # Vitest: physics, scoring, modes, storage (pure modules)
-npm run build          # production build to dist/
-npm run preview        # serve dist/
-npm run screenshots    # Playwright: every screen at 390×844, 844×390, 1440×900 → screenshots/
-npm run smoke          # Playwright: real touch and keyboard input checks
-npm run check:offline  # Playwright: production build installs a service worker and plays offline
-npm run lookdev        # Playwright: art-direction presets and a relative perf probe
-npm run icons          # re-render the PWA icons from public/icons/icon.svg
+For the full architecture, refer to [CLAUDE.md](CLAUDE.md).
+
+## Project layout
+
+```text
+rugby-goalkick/
+├── index.html            # Page shell, HUD and menu markup
+├── style.css             # UI styles and :root colour tokens
+├── vite.config.js        # Build target and PWA manifest / service worker
+├── src/
+│   ├── main.js           # App flow: title, match, pause, settings, summary
+│   ├── config.js         # Field, posts and tuning constants
+│   ├── physics/          # simulate, wind, conversion line, miss explanations
+│   ├── game/             # Kick state machine, rounds, timing meter
+│   ├── modes/            # Match, Practice, Pressure, Daily
+│   ├── core/             # Loop, clock, seeded RNG, events
+│   ├── world/            # Three.js scene: field, posts, stadium, crowd, sky, fx
+│   ├── audio/            # Synthesised effects, crowd and music
+│   ├── input/            # Touch, mouse, keyboard, gamepad, key bindings
+│   ├── ui/               # HUD, screens, tutorial, haptics, motion
+│   ├── settings/         # Settings, best scores, storage
+│   └── debug/            # window.__game hook (dev only)
+├── test/                 # Vitest: physics, scoring, modes, storage
+├── scripts/              # Playwright screenshots, smoke, offline, lookdev; icon render
+├── public/icons/         # PWA icons (rendered from icon.svg)
+└── docs/                 # Revamp plan and screenshots
 ```
 
-Playwright may need `npx playwright install chromium` once. The screenshot and smoke scripts use software WebGL (SwiftShader), so they run anywhere, but their frame rates say nothing about real devices.
+## Setup
 
-See [CLAUDE.md](CLAUDE.md) for the architecture.
+You need Node.js 18 or later.
 
-## Credits
+```bash
+git clone https://github.com/n30dyn4m1c/rugbygoalkick.git
+cd rugbygoalkick
+npm install
+npm run dev        # http://localhost:5173
+```
 
-Game, art, sound and music are original and generated in code. The pattern boards use abstract geometric bands in a red, black and gold palette. The menu groove is a synthesised hand-drum pattern in the spirit of the kundu, not a recording or a specific traditional rhythm. Team names are fictional.
+### Scripts
+
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` | Dev server, with the `window.__game` debug hook |
+| `npm test` | Vitest unit tests for the pure modules |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve `dist/` |
+| `npm run screenshots` | Playwright: every screen at 390×844, 844×390 and 1440×900, to `screenshots/` |
+| `npm run smoke` | Playwright: real touch and keyboard input checks |
+| `npm run check:offline` | Playwright: the production build installs a service worker and plays offline |
+| `npm run lookdev` | Playwright: art-direction presets and a relative performance probe |
+| `npm run icons` | Render the PWA icons again from `public/icons/icon.svg` |
+
+## Notes
+
+- You may need to run `npx playwright install chromium` one time before you use the Playwright scripts. The screenshot and smoke scripts use software WebGL (SwiftShader), so they run on all machines. Their frame rates do not show the performance on real devices.
+- The game, art, sound and music are original, and the code generates them. The pattern boards use abstract geometric bands in red, black and gold. The menu groove is a synthesised hand-drum pattern in the style of the kundu. It is not a recording or a specific traditional rhythm. The team names are fictional.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Author
+
+**Neo Malesa** — [n30dyn4m1c](https://github.com/n30dyn4m1c)
