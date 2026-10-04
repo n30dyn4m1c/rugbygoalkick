@@ -52,7 +52,7 @@ The fastest path from page load to your first kick is two taps: **Play match**, 
 
 | Mode | Rules |
 |------|-------|
-| **Match** | 10 conversions. On each kick, the try is wider, the wind is stronger and the preview is shorter. The game saves your best score and best streak |
+| **Match** | 10 conversions. The first three are gentle, then each kick has a wider try, stronger wind (up to 10 m/s), a faster meter and a shorter preview. The last three have no preview. The game saves your best score and best streak |
 | **Practice** | Choose the try spot, the wind and the length of the preview. The kicks are unlimited, and a heat map at the posts shows your last eight |
 | **Pressure** | Keep scoring until you miss. Each kick is harder, the preview fades out, and a shot clock runs |
 | **Daily** | Ten kicks for today. Everyone gets the same kicks |
