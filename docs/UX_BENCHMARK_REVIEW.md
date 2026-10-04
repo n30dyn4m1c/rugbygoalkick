@@ -2,7 +2,7 @@
 
 A scan of the whole project (code, HUD, flow, screenshots) compared with the best-in-class games in the same space. Each item says what the game does now, what the benchmark does, and what to build. Items are ranked at the end.
 
-Date: 2026-10-05 · Code at `218a03a` (main)
+Date: 2026-10-05 · Code at `54a92be` (main)
 
 ---
 
