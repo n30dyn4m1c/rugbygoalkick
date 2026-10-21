@@ -62,7 +62,7 @@ scripts/           screenshots.mjs, smoke.mjs (real input events), contact-sheet
 
 ### Modes (`modes/modes.js`)
 
-Each mode defines `rounds`, `round(k, ctx)`, `ends(state)`, `shotClock(k, round)` and `score(state)`. Match: 10 kicks, rising difficulty, 2 pts a goal. Daily: match rules with a date seed (same kicks for everyone). Practice: player-chosen try spot, wind and preview, unlimited, heat map of recent kicks (`world/heatmap.js`). Pressure: until the first miss, harder every kick, preview fades to nothing, shot clock (game time, so pause stops it). Bests are stored in `settings/scores.js`.
+Each mode defines `rounds`, `round(k, ctx)`, `ends(state)`, `shotClock(k, round)` and `score(state)`. Match: 10 kicks, 2 pts a goal; difficulty eased by `matchDifficulty` in `game/round.js` (rounds 1–3 gentle, full preview; rounds 8–10 no preview, wind to 10 m/s, tries to the touchline). Daily: match rules with a date seed (same kicks for everyone). Practice: player-chosen try spot, wind and preview, unlimited, heat map of recent kicks (`world/heatmap.js`). Pressure: until the first miss, harder every kick, preview fades to nothing, shot clock (game time, so pause stops it). Bests are stored in `settings/scores.js`.
 
 ### App flow (`main.js`)
 
