@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // Round generation — pure. Difficulty scales with the round number, eased
-// so a match opens gently and finishes hard.
+// so a match opens gently and finishes hard. The easy/normal/hard setting
+// scales that eased curve (see applyDifficulty).
 // The kick distance is the player's choice (tee placement), so difficulty
 // comes from how wide the try is, the wind, the preview and the meter speed.
 // ---------------------------------------------------------------------------
@@ -8,6 +9,22 @@ import { FIELD_WIDTH, GOALPOST_Z } from '../config.js';
 import { yawToPosts, suggestedTeeDistance } from '../physics/conversion.js';
 
 const MAX_TRY_X = FIELD_WIDTH / 2 - 1;
+
+// ---------------------------------------------------------------------------
+// Difficulty setting: how much of the eased ramp each session uses.
+//   easy:   friendlier envelope everywhere, preview stays informative
+//   normal: the tuned ramp
+//   hard:   steeper — wider tries, stronger wind, faster meter
+// ---------------------------------------------------------------------------
+export const DIFFICULTIES = ['easy', 'normal', 'hard'];
+const DIFF_FACTOR = { easy: 0.55, normal: 1, hard: 1.2 };
+const DIFF_MAX = 1.2;
+const METER_MIN = 0.8; // seconds; the sweep must stay readable
+
+/** Map a difficulty factor 0–1 through the chosen setting, capped at DIFF_MAX. */
+export function applyDifficulty(raw, difficulty = 'normal') {
+  return Math.min(DIFF_MAX, Math.max(0, raw) * (DIFF_FACTOR[difficulty] ?? 1));
+}
 
 /**
  * Match difficulty 0–1 for a round. Eased so the opening kicks stay gentle
@@ -34,7 +51,7 @@ export function difficultyEnvelope(diff) {
   return {
     maxTryWidth: Math.min(8 + diff * 25, MAX_TRY_X), // ±8 m → touchline
     minWind: diff * 5, // m/s
-    maxWind: 1.5 + diff * 8.5, // 1.5 → 10 m/s
+    maxWind: 1.5 + diff * 8.5, // 1.5 → 10 m/s (≈11.7 at the hard cap)
     meterPeriod: 1.6 - diff * 0.7, // seconds for one 0→100→0 sweep
   };
 }
@@ -43,30 +60,34 @@ export function difficultyEnvelope(diff) {
  * @param {number} round        1-based round number
  * @param {number} totalRounds
  * @param {() => number} rng    uniform [0, 1)
+ * @param {string} [difficulty] 'easy' | 'normal' | 'hard'
  */
-export function generateRound(round, totalRounds, rng) {
-  return roundAtDifficulty(matchDifficulty(round, totalRounds), rng);
+export function generateRound(round, totalRounds, rng, difficulty = 'normal') {
+  return roundAtDifficulty(applyDifficulty(matchDifficulty(round, totalRounds), difficulty), rng);
 }
 
-/** A round at difficulty 0–1. */
+/** A round at difficulty 0–DIFF_MAX, one fixed rng draw set so the same seed
+ *  is comparable across difficulties. */
 export function roundAtDifficulty(diff, rng) {
   const env = difficultyEnvelope(diff);
+  const [rPos, rWide, rDir, rWind] = [rng(), rng(), rng(), rng()];
 
-  // --- Try position: wider in later rounds ---
+  // --- Try position: wider in later rounds (±8 m → touchline) ---
   const { maxTryWidth } = env;
-  let tryX = (rng() - 0.5) * 2 * maxTryWidth;
+  let tryX = (rPos - 0.5) * 2 * maxTryWidth;
 
-  // Bias toward wide positions once the match gets going
+  // Bias toward wide positions once the match gets going (floor scales with
+  // difficulty, so late tries demand genuinely wide-angle kicks)
   if (diff > 0.3) {
     const minWidth = maxTryWidth * Math.min(0.6, diff * 0.7);
     if (Math.abs(tryX) < minWidth) {
-      tryX = (tryX >= 0 ? 1 : -1) * (minWidth + rng() * (maxTryWidth - minWidth));
+      tryX = (tryX >= 0 ? 1 : -1) * (minWidth + rWide * (maxTryWidth - minWidth));
     }
   }
 
   // --- Wind: stronger in later rounds ---
-  const windDirRad = rng() * Math.PI * 2;
-  const windSpeed = env.minWind + rng() * (env.maxWind - env.minWind);
+  const windDirRad = rDir * Math.PI * 2;
+  const windSpeed = env.minWind + rWind * (env.maxWind - env.minWind);
   const wind = { x: Math.sin(windDirRad) * windSpeed, z: Math.cos(windDirRad) * windSpeed };
 
   return {
@@ -74,8 +95,8 @@ export function roundAtDifficulty(diff, rng) {
     tryX,
     wind,
     windSpeed,
-    previewTier: matchPreviewTier(diff),
-    meterPeriod: env.meterPeriod,
+    previewTier: matchPreviewTier(Math.min(diff, 1)),
+    meterPeriod: Math.max(METER_MIN, env.meterPeriod),
   };
 }
 
@@ -95,8 +116,13 @@ export function pressureShotClock(kick) {
   return Math.max(12, 26 - (kick - 1) * 1.5);
 }
 
-export function generatePressureRound(kick, rng) {
-  const diff = Math.min(1, (kick - 1) / 12);
+/**
+ * @param {number} kick 1-based streak position
+ * @param {() => number} rng
+ * @param {string} [difficulty] 'easy' | 'normal' | 'hard'
+ */
+export function generatePressureRound(kick, rng, difficulty = 'normal') {
+  const diff = applyDifficulty(Math.min(1, (kick - 1) / 12), difficulty);
   const r = roundAtDifficulty(diff, rng);
   return { ...r, previewTier: pressurePreviewTier(kick), shotClock: pressureShotClock(kick) };
 }

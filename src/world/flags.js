@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 import * as THREE from 'three';
 import { GOALPOST_Z, FIELD_WIDTH } from '../config.js';
+import { gustFactor } from '../physics/wind.js';
 import { role } from './materials.js';
 
 const FLAG_POST_HEIGHT = 1.5;
@@ -41,16 +42,18 @@ export function createCornerFlags(scene) {
     createCornerFlag(scene, FIELD_WIDTH / 2, GOALPOST_Z),
   ];
 
-  /** Stream the flags with the air: wind = {x, z} in m/s. */
+  /** Stream the flags with the air: wind = {x, z} in m/s. Gusts modulate the
+   *  visual strength and flutter, never the simulated ball flight. */
   function update(time, wind) {
+    const gust = gustFactor(time);
     const windSpeed = Math.hypot(wind.x, wind.z);
-    const windNorm = Math.min(windSpeed / 8, 1);
+    const windNorm = Math.min((windSpeed * gust) / 8, 1);
     const dirX = windSpeed > 1e-6 ? wind.x / windSpeed : 0;
     const dirZ = windSpeed > 1e-6 ? wind.z / windSpeed : 0;
 
     for (const { flag } of flags) {
       const positions = flag.geometry.attributes.position;
-      const flutter = Math.sin(time * 12) * 0.08 * windNorm;
+      const flutter = (Math.sin(time * 12) * 0.06 + Math.sin(time * 26) * 0.03 * gust) * windNorm;
       const tipX = dirX * FLAG_WIDTH + flutter;
       const tipZ = dirZ * FLAG_WIDTH + flutter * 0.5;
       const limpX = FLAG_WIDTH * 0.15;

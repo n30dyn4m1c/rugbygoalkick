@@ -15,7 +15,22 @@ export function windLevel(speed) {
   return 5;
 }
 
-/** Split wind into along-kick (+ = tailwind) and across (+ = pushes right). */
+/**
+ * Deterministic gust modulation for the wind's *visual* presence (flags,
+ * corner trim). Pure and time-based so pause = freeze. The flight simulation
+ * always uses the round's steady wind — gusts never move the ball.
+ * @param {number} t  game time in seconds
+ * @param {number} [seed] shifts the gust phase (e.g. per flag or per round)
+ * @returns {number} multiplier in [0.8, 1.2] — 1 = steady air
+ */
+export function gustFactor(t, seed = 0) {
+  const a = Math.sin((t + seed) * 0.53 + 2 * Math.sin((t + seed) * 0.21 + seed));
+  const b = Math.sin((t + seed) * 1.7 + seed * 3);
+  return 1 + 0.2 * (0.7 * a + 0.3 * b);
+}
+
+/**
+ * Split wind into along-kick (+ = tailwind) and across (+ = pushes right). */
 export function windComponents(wind, forwardYaw) {
   const fx = Math.sin(forwardYaw);
   const fz = -Math.cos(forwardYaw);

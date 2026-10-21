@@ -116,6 +116,11 @@ export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault
     el.addEventListener('change', () => el.checked && settings.set({ textScale: Number(el.value) }));
   }
 
+  for (const el of document.querySelectorAll('input[name="difficulty"]')) {
+    el.checked = el.value === s().difficulty;
+    el.addEventListener('change', () => el.checked && settings.set({ difficulty: el.value }));
+  }
+
   const motion = $('set-reduceMotion');
   const syncMotion = () => (motion.checked = s().reduceMotion === 'auto' ? reducedDefault() : s().reduceMotion === 'on');
   syncMotion();
@@ -197,16 +202,22 @@ export function bindSettings(settings, { onRebindStart, onRebindEnd, glowDefault
 // ---------------------------------------------------------------------------
 export function setTitleBest(all, today) {
   const parts = [];
-  if (all.match.bestPoints) parts.push(`Best ${all.match.bestPoints} pts`);
-  if (all.pressure.bestStreak) parts.push(`pressure streak ${all.pressure.bestStreak}`);
+  for (const [mode, tag] of [['match', ''], ['matchEasy', ' easy'], ['matchHard', ' hard']]) {
+    if (all[mode]?.bestPoints) parts.push(`Best ${all[mode].bestPoints} pts${tag}`);
+  }
+  for (const [mode, tag] of [['pressure', ''], ['pressureEasy', ' easy'], ['pressureHard', ' hard']]) {
+    if (all[mode]?.bestStreak) parts.push(`pressure streak ${all[mode].bestStreak}${tag}`);
+  }
   $('title-best').textContent = parts.join(' · ');
-  $('daily-sub').textContent = all.daily.date === today && all.daily.bestPoints ? `Today: ${all.daily.bestPoints} pts` : 'Same kicks for all';
+  const daily = [['daily', ''], ['dailyEasy', ' easy'], ['dailyHard', ' hard']].find(([mode]) => all[mode]?.date === today && all[mode].bestPoints);
+  $('daily-sub').textContent = daily ? `Today: ${all[daily[0]].bestPoints} pts${daily[1]}` : 'Same kicks for all';
 }
 
-export function fillSummary({ mode, points, goals, streak, bestStreak, log, record }) {
+export function fillSummary({ mode, points, goals, streak, bestStreak, log, record, difficulty }) {
+  const tag = difficulty === 'easy' ? ' · easy' : difficulty === 'hard' ? ' · hard' : '';
   const pressure = mode === 'pressure';
   const total = log.length;
-  $('summary-heading').textContent = pressure ? 'Streak over' : mode === 'daily' ? 'Daily challenge' : 'Full time';
+  $('summary-heading').textContent = pressure ? `Streak over${tag}` : mode === 'daily' ? `Daily challenge${tag}` : `Full time${tag}`;
   $('sum-points').parentElement.lastChild.textContent = pressure ? (streak === 1 ? ' goal' : ' goals') : ' pts';
   $('sum-points').textContent = String(pressure ? streak : points);
   const pct = total ? Math.round((goals / total) * 100) : 0;

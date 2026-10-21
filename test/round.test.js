@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { generateRound, matchDifficulty, difficultyEnvelope } from '../src/game/round.js';
+import {
+  generateRound, generatePressureRound, matchDifficulty, difficultyEnvelope, applyDifficulty,
+} from '../src/game/round.js';
 import { createRng, hashSeed } from '../src/core/rng.js';
 
 const match = (seed) => {
   const rng = createRng(seed);
   return Array.from({ length: 10 }, (_, i) => generateRound(i + 1, 10, rng));
+};
+
+const withDifficulty = (seed, difficulty) => {
+  const rng = createRng(seed);
+  return Array.from({ length: 10 }, (_, i) => generateRound(i + 1, 10, rng, difficulty));
 };
 
 describe('seeded round generator', () => {
@@ -19,12 +26,13 @@ describe('seeded round generator', () => {
   it('keeps tries and wind within the difficulty envelope', () => {
     for (let seed = 1; seed <= 200; seed++) {
       match(seed).forEach((r, i) => {
-        const env = difficultyEnvelope(matchDifficulty(i + 1, 10));
-        expect(Math.abs(r.tryX)).toBeLessThanOrEqual(env.maxTryWidth + 1e-9);
+        const diff = matchDifficulty(i + 1, 10);
+        expect(r.difficulty).toBeCloseTo(diff, 9);
+        expect(Math.abs(r.tryX)).toBeLessThanOrEqual(difficultyEnvelope(diff).maxTryWidth + 1e-9);
         expect(Math.abs(r.tryX)).toBeLessThan(34); // inside the field
         expect([0, 1, 2, 3]).toContain(r.previewTier);
-        expect(r.windSpeed).toBeGreaterThanOrEqual(env.minWind - 1e-9);
-        expect(r.windSpeed).toBeLessThanOrEqual(env.maxWind + 1e-9);
+        expect(r.windSpeed).toBeGreaterThanOrEqual(difficultyEnvelope(diff).minWind - 1e-9);
+        expect(r.windSpeed).toBeLessThanOrEqual(difficultyEnvelope(diff).maxWind + 1e-9);
         expect(Math.hypot(r.wind.x, r.wind.z)).toBeCloseTo(r.windSpeed);
       });
     }
@@ -79,5 +87,54 @@ describe('match progression', () => {
     expect(r[0].previewTier).toBe(3);
     expect(r[9].previewTier).toBeLessThan(r[0].previewTier);
     expect(r[9].meterPeriod).toBeLessThan(r[0].meterPeriod);
+  });
+});
+
+describe('difficulty setting', () => {
+  it('surely softens easy and steepens hard, round by round', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const easy = withDifficulty(seed, 'easy');
+      const normal = match(seed);
+      const hard = withDifficulty(seed, 'hard');
+      for (let i = 0; i < 10; i++) {
+        expect(easy[i].windSpeed).toBeLessThanOrEqual(normal[i].windSpeed);
+        expect(normal[i].windSpeed).toBeLessThanOrEqual(hard[i].windSpeed);
+        expect(Math.abs(easy[i].tryX)).toBeLessThanOrEqual(Math.abs(normal[i].tryX));
+        expect(Math.abs(normal[i].tryX)).toBeLessThanOrEqual(Math.abs(hard[i].tryX));
+        expect(easy[i].meterPeriod).toBeGreaterThanOrEqual(normal[i].meterPeriod);
+        expect(normal[i].meterPeriod).toBeGreaterThanOrEqual(hard[i].meterPeriod);
+      }
+    }
+  });
+
+  it('hard caps the eased curve at 1.2 with a readable meter and no preview', () => {
+    const r = withDifficulty(7, 'hard');
+    expect(r[9].difficulty).toBe(1.2);
+    expect(r[0].difficulty).toBe(0);
+    expect(r[9].meterPeriod).toBe(0.8); // floored, never unreadably fast
+    expect(r[9].previewTier).toBe(0); // the hardest rounds play on pure aim
+    expect(r[9].windSpeed).toBeLessThanOrEqual(difficultyEnvelope(1.2).maxWind + 1e-9);
+  });
+
+  it('easy keeps a present preview at the climax', () => {
+    const r = withDifficulty(7, 'easy');
+    expect(r[9].difficulty).toBeCloseTo(0.55);
+    expect(r[9].previewTier).toBeGreaterThanOrEqual(1);
+    expect(r[9].meterPeriod).toBeGreaterThan(1);
+  });
+
+  it('pressure respects the setting too', () => {
+    const late = (k, difficulty) => generatePressureRound(k, createRng(3), difficulty).windSpeed;
+    expect(late(12, 'easy')).toBeLessThanOrEqual(late(12, 'normal'));
+    expect(late(12, 'normal')).toBeLessThanOrEqual(late(12, 'hard'));
+  });
+
+  it('applyDifficulty caps at the ceiling and falls back to normal', () => {
+    expect(applyDifficulty(1, 'hard')).toBe(1.2);
+    expect(applyDifficulty(1, 'easy')).toBeCloseTo(0.55);
+    expect(applyDifficulty(1)).toBe(1);
+    expect(applyDifficulty(1, undefined)).toBe(1);
+    expect(applyDifficulty(1, 'bogus')).toBe(1);
+    expect(applyDifficulty(-3, 'hard')).toBe(0);
   });
 });

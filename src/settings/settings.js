@@ -5,6 +5,7 @@ import { createStore } from './storage.js';
 import { DEFAULT_BINDINGS } from '../input/bindings.js';
 
 export const DEFAULT_SETTINGS = {
+  difficulty: 'normal', // easy | normal | hard (match / daily / pressure)
   aimSensitivity: 1, // 0.5–2
   invertDragAim: false,
   handedness: 'right', // which edge the elevation slider sits on
