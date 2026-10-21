@@ -4,8 +4,9 @@
 [![Three.js](https://img.shields.io/badge/Three.js-0.170-black.svg)](https://threejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg)](https://vite.dev/)
 [![PWA](https://img.shields.io/badge/PWA-offline-5A0FC8.svg)](https://web.dev/explore/progressive-web-apps)
+[![Play](https://img.shields.io/badge/Play-online-2EA44F.svg)](https://n30dyn4m1c.github.io/rugbygoalkick)
 
-**Browser 3D rugby league goal-kicking game in Three.js and Vite, with wind physics, four modes, and offline play as an installable app.**
+**Browser 3D rugby league goal-kicking game in Three.js and Vite, with wind physics, four modes, and offline play as an installable app. Play it at [n30dyn4m1c.github.io/rugbygoalkick](https://n30dyn4m1c.github.io/rugbygoalkick).**
 
 You take conversions at a ground in Papua New Guinea under floodlights, on a phone or a desktop. Choose your spot on the conversion line, read the wind, and kick the ball between the posts. All geometry, textures, sound and music are generated in code. The game loads no image, model or audio files, and its only runtime dependencies are Three.js and a self-hosted font.
 
