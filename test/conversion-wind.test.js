@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { postAngle, bestAngleDistance, suggestedTeeDistance, yawToPosts, clampYaw } from '../src/physics/conversion.js';
 import { kickVelocity } from '../src/physics/simulate.js';
-import { describeWind, windLevel, windComponents } from '../src/physics/wind.js';
+import { describeWind, windLevel, windComponents, gustFactor } from '../src/physics/wind.js';
 import { explain } from '../src/physics/explain.js';
 import { simulate } from '../src/physics/simulate.js';
 import { GOALPOST_Z, TEE_DIST_MIN, TEE_DIST_MAX } from '../src/config.js';
@@ -85,6 +85,26 @@ describe('wind from the kicker\'s view', () => {
     expect(windLevel(0.2)).toBe(0);
     expect(windLevel(9)).toBe(5);
     expect(describeWind({ x: 0, z: 0 }, 0).levelWord).toBe('Calm');
+  });
+});
+
+describe('gust factor (visual wind only)', () => {
+  it('stays within [0.8, 1.2] and is deterministic', () => {
+    for (let seed = 0; seed < 5; seed++) {
+      for (let t = 0; t < 300; t += 0.25) {
+        const gf = gustFactor(t, seed);
+        expect(gf).toBeGreaterThanOrEqual(0.8 - 1e-12);
+        expect(gf).toBeLessThanOrEqual(1.2 + 1e-12);
+        expect(gustFactor(t, seed)).toBe(gf);
+      }
+    }
+  });
+
+  it('returns to steady air over time', () => {
+    // the modulation oscillates around 1 both above and below
+    const values = Array.from({ length: 200 }, (_, i) => gustFactor(i * 0.7, 2));
+    expect(values.some((v) => v > 1)).toBe(true);
+    expect(values.some((v) => v < 1)).toBe(true);
   });
 });
 

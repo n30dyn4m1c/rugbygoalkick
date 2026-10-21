@@ -341,6 +341,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
       g.flight = null;
       onMatchEnd({
         mode: g.mode,
+        difficulty: settings.get().difficulty,
         streak: g.mode === 'pressure' ? g.goals : g.bestStreak, // pressure ends at the first miss
         points: g.points,
         goals: g.goals,
@@ -356,7 +357,7 @@ export function createGame({ world, rig, camera, input, settings, rng, onPhase =
   }
 
   function setupRound() {
-    g.roundInfo = g.modeDef.round(g.round, { rng, practice: g.practice });
+    g.roundInfo = g.modeDef.round(g.round, { rng, practice: g.practice, difficulty: settings.get().difficulty });
     g.flight = null;
     g.shot = null;
     hud.setShotClock(null);

@@ -10,46 +10,72 @@ const MAX_TRY_X = FIELD_WIDTH / 2 - 1;
 
 /** Match preview tier by difficulty 0–1: full → long → short. */
 export function matchPreviewTier(diff) {
-  if (diff < 0.25) return 3;
-  if (diff < 0.6) return 2;
+  if (diff <= 0.25) return 3;
+  if (diff <= 0.6) return 2; // easy's climax (0.6) keeps the longer preview
   return 1;
+}
+
+// ---------------------------------------------------------------------------
+// Difficulty setting: how much of the standard ramp each session uses.
+//   easy:   friendlier envelope everywhere, preview stays informative
+//   normal: the tuned ramp
+//   hard:   ~25% steeper — wider tries, stronger wind, faster meter
+// ---------------------------------------------------------------------------
+export const DIFFICULTIES = ['easy', 'normal', 'hard'];
+const DIFF_FACTOR = { easy: 0.6, normal: 1, hard: 1.25 };
+const METER_MIN = 0.8; // seconds; the sweep must stay readable
+
+/** Map a raw progression factor (0–1) through the chosen difficulty. */
+export function applyDifficulty(raw, difficulty = 'normal') {
+  return Math.min(1.25, raw * (DIFF_FACTOR[difficulty] ?? 1));
+}
+
+/** Try position and wind for a difficulty factor 0–1.25 — one fixed rng draw
+ *  set, so the same seed is comparable across difficulties. */
+function envelope(diff, rng) {
+  const [rPos, rWide, rDir, rWind] = [rng(), rng(), rng(), rng()];
+  const nearOne = Math.min(diff, 1);
+
+  // --- Try position: wider in later rounds (±10 m → ±31 m, ±33 m on hard) ---
+  const maxTryWidth = Math.min(10 + diff * 21, MAX_TRY_X);
+  let tryX = (rPos - 0.5) * 2 * maxTryWidth;
+
+  // Bias toward wider positions from the mid rounds on (floor scales with
+  // difficulty: 40% of max early → 70% at the climax, so late tries demand
+  // genuinely wide-angle kicks)
+  if (diff > 0.4) {
+    const minWidth = maxTryWidth * (0.4 + 0.3 * nearOne * nearOne);
+    if (Math.abs(tryX) < minWidth) {
+      tryX = (tryX >= 0 ? 1 : -1) * (minWidth + rWide * (maxTryWidth - minWidth));
+    }
+  }
+
+  // --- Wind: stronger in later rounds (1–2 m/s → 5–9 m/s, up to ~11 on hard) ---
+  const windDirRad = rDir * Math.PI * 2;
+  const minWind = 1 + diff * 4;
+  const maxWind = 2 + diff * 7;
+  const windSpeed = minWind + rWind * (maxWind - minWind);
+  const wind = { x: Math.sin(windDirRad) * windSpeed, z: Math.cos(windDirRad) * windSpeed };
+
+  return { tryX, wind, windSpeed };
 }
 
 /**
  * @param {number} round        1-based round number
  * @param {number} totalRounds
  * @param {() => number} rng    uniform [0, 1)
+ * @param {string} [difficulty] 'easy' | 'normal' | 'hard'
  */
-export function generateRound(round, totalRounds, rng) {
+export function generateRound(round, totalRounds, rng, difficulty = 'normal') {
   // Difficulty progression factor: 0 (round 1) → 1 (last round)
-  const diff = totalRounds > 1 ? (round - 1) / (totalRounds - 1) : 0;
-
-  // --- Try position: wider in later rounds (±10 m → ±30 m) ---
-  const maxTryWidth = Math.min(10 + diff * 20, MAX_TRY_X);
-  let tryX = (rng() - 0.5) * 2 * maxTryWidth;
-
-  // Bias toward wider positions in later rounds
-  if (diff > 0.5) {
-    const minWidth = maxTryWidth * 0.4;
-    if (Math.abs(tryX) < minWidth) {
-      tryX = (tryX >= 0 ? 1 : -1) * (minWidth + rng() * (maxTryWidth - minWidth));
-    }
-  }
-
-  // --- Wind: stronger in later rounds (0–2 m/s → 3–8 m/s) ---
-  const windDirRad = rng() * Math.PI * 2;
-  const minWind = diff * 3;
-  const maxWind = 2 + diff * 6;
-  const windSpeed = minWind + rng() * (maxWind - minWind);
-  const wind = { x: Math.sin(windDirRad) * windSpeed, z: Math.cos(windDirRad) * windSpeed };
+  const raw = totalRounds > 1 ? (round - 1) / (totalRounds - 1) : 0;
+  const diff = applyDifficulty(raw, difficulty);
 
   return {
     difficulty: diff,
-    tryX,
-    wind,
-    windSpeed,
-    previewTier: matchPreviewTier(diff),
-    meterPeriod: 1.6 - diff * 0.5, // seconds for one 0→100→0 sweep
+    ...envelope(diff, rng),
+    previewTier: matchPreviewTier(Math.min(diff, 1)),
+    meterPeriod: Math.max(METER_MIN, 1.6 - diff * 0.7), // seconds for one 0→100→0 sweep
   };
 }
 
@@ -69,10 +95,15 @@ export function pressureShotClock(kick) {
   return Math.max(12, 26 - (kick - 1) * 1.5);
 }
 
-export function generatePressureRound(kick, rng) {
-  const diff = Math.min(1, (kick - 1) / 12);
-  const r = generateRound(1 + diff * 9, 10, rng);
-  return { ...r, previewTier: pressurePreviewTier(kick), meterPeriod: 1.6 - diff * 0.6, shotClock: pressureShotClock(kick) };
+export function generatePressureRound(kick, rng, difficulty = 'normal') {
+  const diff = applyDifficulty(Math.min(1, (kick - 1) / 12), difficulty);
+  const r = { difficulty: diff, ...envelope(diff, rng) };
+  return {
+    ...r,
+    previewTier: pressurePreviewTier(kick),
+    meterPeriod: Math.max(METER_MIN, 1.6 - diff * 0.7),
+    shotClock: pressureShotClock(kick),
+  };
 }
 
 // ---------------------------------------------------------------------------
